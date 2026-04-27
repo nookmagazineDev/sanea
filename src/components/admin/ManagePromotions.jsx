@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbyU2s1YdzwgRJJCuolbFam2d2U6rYDqxNyi0GHJXx4laRv6B7dtcuAoZvQ82xJ05jBo/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxwR7-oivm8zdCbUtgznjoafFyfJg09TM_Iy3s8pPcOROLcsvn0CkvHt3XoH7mlU9Z-Hw/exec';
 
 const ManagePromotions = () => {
   const { lang } = useOutletContext();
