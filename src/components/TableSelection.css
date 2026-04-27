@@ -3,21 +3,21 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--bg-dark), var(--bg-card));
+  background: linear-gradient(135deg, #0e0404, #3a0808);
   padding: 1rem;
 }
 
 .table-selection-card {
-  background: rgba(43, 44, 49, 0.85);
+  background: rgba(60, 10, 10, 0.92);
   backdrop-filter: blur(12px);
   padding: 2.5rem;
   border-radius: 24px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   text-align: center;
   max-width: 500px;
   width: 100%;
   animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(185, 28, 28, 0.3);
 }
 
 @media (max-width: 480px) {
@@ -31,11 +31,11 @@
   font-size: 2.5rem;
   font-weight: 800;
   margin-bottom: 0.5rem;
-  background: linear-gradient(to right, var(--accent), #fcd34d);
+  background: linear-gradient(to right, #e53e3e, #fed7aa);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 4px 20px rgba(249, 115, 22, 0.2);
+  text-shadow: 0 4px 20px rgba(185, 28, 28, 0.3);
 }
 
 .table-selection-subtitle {
@@ -75,8 +75,8 @@
 }
 
 .table-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(185, 28, 28, 0.08);
+  border: 2px solid rgba(185, 28, 28, 0.2);
   color: white;
   font-size: 1.25rem;
   font-weight: bold;
@@ -87,10 +87,10 @@
 }
 
 .table-btn:hover {
-  background: rgba(249, 115, 22, 0.15);
+  background: rgba(185, 28, 28, 0.25);
   border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.2);
+  box-shadow: 0 8px 24px rgba(185, 28, 28, 0.3);
 }
 
 .table-btn:active {
@@ -98,9 +98,9 @@
 }
 
 .table-btn-active {
-  background: rgba(249, 115, 22, 0.12);
+  background: rgba(185, 28, 28, 0.2);
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.3), 0 4px 16px rgba(249, 115, 22, 0.15);
+  box-shadow: 0 0 0 1px rgba(185, 28, 28, 0.4), 0 4px 16px rgba(185, 28, 28, 0.2);
 }
 
 .separator {

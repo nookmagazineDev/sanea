@@ -629,7 +629,7 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0 }}>
                       <img src="/logo.png" alt="Logo" style={{ height: '48px', width: '48px', objectFit: 'cover', borderRadius: '50%', border: '2px solid gold' }} />
-                      <span>{lang === 'th' ? 'กะเพราสิบหน้า' : 'Kra Pao 10 Na'}</span>
+                      <span>{lang === 'th' ? 'เสน่ห์' : 'Sa-Nae'}</span>
                     </h1>
                     <p style={{ margin: '4px 0 0 60px', fontSize: '0.82rem', color: 'rgba(255,255,255,0.6)' }}>
                       {lang === 'th' ? `โต๊ะ ${tableNumber}` : `Table ${tableNumber}`}
@@ -705,7 +705,7 @@ function App() {
                           position: 'absolute',
                           top: '-6px',
                           right: '-6px',
-                          background: '#ef4444',
+                          background: '#b91c1c',
                           color: 'white',
                           fontSize: '0.75rem',
                           fontWeight: 'bold',

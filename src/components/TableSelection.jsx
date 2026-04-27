@@ -22,7 +22,7 @@ const TableSelection = ({ setGlobalTableNumber, lang, tableOrders = [] }) => {
     <div className="table-selection-container">
       <div className="table-selection-card">
         <h1 className="table-selection-title">
-          {lang === 'th' ? 'สเน่ห์POS' : 'SanehPOS'}
+          {lang === 'th' ? 'เสน่ห์' : 'Sa-Nae'}
         </h1>
         <p className="table-selection-subtitle">
           {lang === 'th' ? 'เลือกโต๊ะเพื่อดูรายการอาหาร' : 'Select a table to view orders'}
@@ -45,7 +45,7 @@ const TableSelection = ({ setGlobalTableNumber, lang, tableOrders = [] }) => {
                     position: 'absolute',
                     top: '-6px',
                     right: '-6px',
-                    background: '#f97316',
+                    background: '#b91c1c',
                     color: 'white',
                     fontSize: '0.7rem',
                     fontWeight: '800',
@@ -56,8 +56,8 @@ const TableSelection = ({ setGlobalTableNumber, lang, tableOrders = [] }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '2px solid #0f0f1a',
-                    boxShadow: '0 2px 6px rgba(249,115,22,0.5)'
+                    border: '2px solid #1a0000',
+                    boxShadow: '0 2px 6px rgba(185,28,28,0.5)'
                   }}>
                     {count}
                   </span>
@@ -93,7 +93,7 @@ const TableSelection = ({ setGlobalTableNumber, lang, tableOrders = [] }) => {
 
         {/* Legend */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.4)' }}>
-          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f97316', display: 'inline-block' }} />
+          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#b91c1c', display: 'inline-block' }} />
           {lang === 'th' ? 'มีรายการอาหาร' : 'Has active orders'}
         </div>
       </div>
