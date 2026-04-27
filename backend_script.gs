@@ -59,6 +59,23 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
   
+  if (action === 'resetAllSheetData') {
+    var catSheet = ss.getSheetByName('Categories');
+    if (catSheet && catSheet.getLastRow() > 1) {
+      catSheet.deleteRows(2, catSheet.getLastRow() - 1);
+    }
+    var menuSheet = ss.getSheetByName('Menu');
+    if (menuSheet && menuSheet.getLastRow() > 1) {
+      menuSheet.deleteRows(2, menuSheet.getLastRow() - 1);
+    }
+    var promoSheet = ss.getSheetByName('Promotions');
+    if (promoSheet && promoSheet.getLastRow() > 1) {
+      promoSheet.deleteRows(2, promoSheet.getLastRow() - 1);
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: true, message: 'All data cleared' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({ error: 'Unknown GET action' }))
     .setMimeType(ContentService.MimeType.JSON);
 }
