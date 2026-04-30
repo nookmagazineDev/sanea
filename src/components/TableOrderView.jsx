@@ -11,7 +11,8 @@ const TableOrderView = ({
   onBack,
   onRefresh,
   isRefreshing,
-  onMoveMerge
+  onMoveMerge,
+  currentUser
 }) => {
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState(''); // 'move' or 'merge'
@@ -296,22 +297,28 @@ const TableOrderView = ({
           </button>
           {pendingItems.length > 0 && (
             <button
-              onClick={() => onCheckout(pendingItems, totalAmount)}
+              onClick={() => {
+                if (currentUser?.canCheckout !== false || currentUser?.isAdmin) {
+                  onCheckout(pendingItems, totalAmount);
+                } else {
+                  alert(lang === 'th' ? 'ไม่มีสิทธิ์ในการชำระเงิน' : 'No checkout permission');
+                }
+              }}
               style={{
                 flex: 2,
-                background: 'var(--accent)',
+                background: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
                 border: 'none',
                 borderRadius: '14px',
-                color: 'white',
+                color: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'white' : 'var(--text-muted)',
                 padding: '0.9rem',
-                cursor: 'pointer',
+                cursor: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'pointer' : 'not-allowed',
                 fontWeight: '700',
                 fontSize: '1rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                boxShadow: '0 4px 20px rgba(249,115,22,0.4)',
+                boxShadow: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? '0 4px 20px rgba(249,115,22,0.4)' : 'none',
                 transition: 'all 0.2s'
               }}
             >

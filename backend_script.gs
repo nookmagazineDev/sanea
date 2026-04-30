@@ -23,11 +23,12 @@ function getOrCreateSheet(ss, sheetName, headers) {
 
 function initializeSheets() {
   var ss = SpreadsheetApp.openById(SHEET_ID);
-  getOrCreateSheet(ss, 'Orders', ['Timestamp', 'OrderNumber', 'CustomerName', 'Address', 'ItemDetail', 'DiningOption', 'Price', 'TotalAmount', 'Status', 'OrderStartTime', 'CompletionTime']);
+  getOrCreateSheet(ss, 'Orders', ['Timestamp', 'OrderNumber', 'CustomerName', 'Address', 'ItemDetail', 'DiningOption', 'Price', 'TotalAmount', 'Status', 'OrderStartTime', 'CompletionTime', 'RecordedBy']);
   getOrCreateSheet(ss, 'Categories', ['slug', 'name', 'nameEn', 'icon', 'isActive', 'hasPopup1', 'popup1Category', 'popup1Items', 'popup1Min', 'popup1Max', 'popup1ItemsMax', 'popup1Free', 'hasPopup2', 'popup2Category', 'popup2Items', 'popup2Min', 'popup2Max', 'popup2ItemsMax', 'popup2Free', 'hasPopup3', 'popup3Category', 'popup3Items', 'popup3Min', 'popup3Max', 'popup3ItemsMax', 'popup3Free', 'hasPopup4', 'popup4Category', 'popup4Items', 'popup4Min', 'popup4Max', 'popup4ItemsMax', 'popup4Free', 'hasPopup5', 'popup5Category', 'popup5Items', 'popup5Min', 'popup5Max', 'popup5ItemsMax', 'popup5Free', 'hasPopup6', 'popup6Category', 'popup6Items', 'popup6Min', 'popup6Max', 'popup6ItemsMax', 'popup6Free', 'hasDining']);
   getOrCreateSheet(ss, 'Menu', ['id', 'category', 'name', 'nameEn', 'description', 'descriptionEn', 'price', 'image', 'isActive', 'bundledItems']);
   getOrCreateSheet(ss, 'Promotions', ['id', 'name', 'nameEn', 'price', 'origPrice']);
-  getOrCreateSheet(ss, 'TableOrders', ['TableNumber', 'SessionId', 'ItemName', 'ItemNameEn', 'ItemPrice', 'Quantity', 'Options', 'Timestamp', 'Status']);
+  getOrCreateSheet(ss, 'TableOrders', ['TableNumber', 'SessionId', 'ItemName', 'ItemNameEn', 'ItemPrice', 'Quantity', 'Options', 'Timestamp', 'Status', 'RecordedBy']);
+  getOrCreateSheet(ss, 'Users', ['id', 'username', 'pin', 'canCheckout']);
 }
 
 function doGet(e) {
@@ -42,7 +43,8 @@ function doGet(e) {
       categories: getSheetDataAsObjects(ss, 'Categories'),
       menu: getSheetDataAsObjects(ss, 'Menu'),
       promotions: getSheetDataAsObjects(ss, 'Promotions'),
-      tableOrders: getSheetDataAsObjects(ss, 'TableOrders')
+      tableOrders: getSheetDataAsObjects(ss, 'TableOrders'),
+      users: getSheetDataAsObjects(ss, 'Users')
     };
     return ContentService.createTextOutput(JSON.stringify(data))
       .setMimeType(ContentService.MimeType.JSON);
@@ -135,6 +137,7 @@ function doPost(e) {
     var sessionId = postData.sessionId || String(Date.now());
     var items = postData.items || [];
     var timestamp = postData.timestamp || new Date().toISOString();
+    var recordedBy = postData.recordedBy || '';
 
     items.forEach(function(item) {
       var options = '';
@@ -155,7 +158,8 @@ function doPost(e) {
         Number(item.quantity) || 1,
         options,
         timestamp,
-        'pending'
+        'pending',
+        recordedBy
       ]);
     });
 
@@ -397,6 +401,22 @@ function doPost(e) {
         c.hasPopup5 === true ? true : false, c.popup5Category || '', c.popup5Items ? JSON.stringify(c.popup5Items) : '[]', c.popup5Min || 0, c.popup5Max || 0, c.popup5ItemsMax ? JSON.stringify(c.popup5ItemsMax) : '{}', c.popup5Free === true ? true : false,
         c.hasPopup6 === true ? true : false, c.popup6Category || '', c.popup6Items ? JSON.stringify(c.popup6Items) : '[]', c.popup6Min || 0, c.popup6Max || 0, c.popup6ItemsMax ? JSON.stringify(c.popup6ItemsMax) : '{}', c.popup6Free === true ? true : false,
         c.hasDining !== false ? true : false
+      ]);
+    });
+    return ContentService.createTextOutput(JSON.stringify({"success": true})).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  if (action === 'saveUsers') {
+    var sheet = ss.getSheetByName('Users');
+    sheet.clearContents();
+    sheet.appendRow(['id', 'username', 'pin', 'canCheckout']);
+    var users = postData.users || [];
+    users.forEach(function(u) {
+      sheet.appendRow([
+        u.id || Date.now().toString(),
+        u.username || '',
+        u.pin || '',
+        u.canCheckout !== false ? true : false
       ]);
     });
     return ContentService.createTextOutput(JSON.stringify({"success": true})).setMimeType(ContentService.MimeType.JSON);

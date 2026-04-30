@@ -12,8 +12,10 @@ import ManageMenu from './components/admin/ManageMenu';
 import ManagePromotions from './components/admin/ManagePromotions';
 import ManageCategories from './components/admin/ManageCategories';
 import ManagePrinters from './components/admin/ManagePrinters';
+import ManageUsers from './components/admin/ManageUsers';
 import TableSelection from './components/TableSelection';
 import TableOrderView from './components/TableOrderView';
+import LoginScreen from './components/LoginScreen';
 import './index.css';
 
 const MENU_ITEMS = [];
@@ -26,6 +28,24 @@ function App() {
   const [lang, setLang] = useState('th');
   const [tableNumber, setTableNumber] = useState(localStorage.getItem('table_number') || '');
   const isScrollingRef = React.useRef(false);
+
+  // Users & Auth
+  const [users, setUsers] = useState([]);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('current_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    localStorage.setItem('current_user', JSON.stringify(user));
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('current_user');
+    setTableNumber('');
+  };
 
   React.useEffect(() => {
     if (tableNumber) localStorage.setItem('table_number', tableNumber);
@@ -102,6 +122,9 @@ function App() {
     }
     if (data.tableOrders && Array.isArray(data.tableOrders)) {
       setTableOrders(data.tableOrders);
+    }
+    if (data.users && Array.isArray(data.users)) {
+      setUsers(data.users);
     }
   };
 
@@ -314,7 +337,8 @@ function App() {
         Quantity: Number(item.quantity) || 1,
         Options: parts.join(', '),
         Timestamp: timestamp,
-        Status: 'pending'
+        Status: 'pending',
+        RecordedBy: currentUser ? currentUser.username : ''
       };
     });
 
@@ -333,7 +357,8 @@ function App() {
           tableNumber: String(tableNumber),
           sessionId,
           items: cart,
-          timestamp
+          timestamp,
+          recordedBy: currentUser ? currentUser.username : ''
         })
       });
       // Refresh after saving
@@ -374,13 +399,13 @@ function App() {
       rowsToSend.push([
         timestamp, newOrderNumber, customerName, address,
         item.ItemName + qtyText, 'ทานที่ร้าน', price,
-        checkoutTotal, 'Completed', timestamp, timestamp
+        checkoutTotal, 'Completed', timestamp, timestamp, currentUser ? currentUser.username : ''
       ]);
       if (item.Options) {
         rowsToSend.push([
           timestamp, newOrderNumber, customerName, address,
           `↳ ${item.Options}`, 'ทานที่ร้าน', 0,
-          checkoutTotal, 'Completed', timestamp, timestamp
+          checkoutTotal, 'Completed', timestamp, timestamp, currentUser ? currentUser.username : ''
         ]);
       }
     });
@@ -547,6 +572,21 @@ function App() {
     }, 0);
   };
 
+  // Only block main app with login. Kitchen can be viewed without login, or we can just block everything.
+  // For simplicity, block everything except if the user specifically goes to /kitchen maybe?
+  // Let's just block the entire app until logged in.
+  if (!currentUser) {
+    // If path is /kitchen, allow it? Optional. Let's just require login for everything.
+    return (
+      <LoginScreen 
+        users={users} 
+        onLogin={handleLogin} 
+        lang={lang} 
+        isOfflineMode={users.length === 0} 
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <Routes>
@@ -566,6 +606,7 @@ function App() {
               tableNumber={tableNumber}
               tableOrders={tableOrders}
               lang={lang}
+              currentUser={currentUser}
               onAddMore={() => navigate('/index')}
               onCheckout={handleOpenCheckoutFromTable}
               onDeleteItem={handleDeleteTableItem}
@@ -743,10 +784,11 @@ function App() {
           />
         } />
 
-        <Route path="/admin" element={<AdminLayout lang={lang} setLang={setLang} />}>
+        <Route path="/admin" element={<AdminLayout lang={lang} setLang={setLang} onLogout={handleLogout} />}>
           <Route index element={<Dashboard />} />
           <Route path="menu" element={<ManageMenu />} />
           <Route path="categories" element={<ManageCategories />} />
+          <Route path="users" element={<ManageUsers />} />
           <Route path="promotions" element={<ManagePromotions />} />
           <Route path="printers" element={<ManagePrinters />} />
         </Route>
