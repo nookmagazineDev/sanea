@@ -31,19 +31,14 @@ function App() {
 
   // Users & Auth
   const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('current_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  const [currentUser, setCurrentUser] = useState(null);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
-    localStorage.setItem('current_user', JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('current_user');
     setTableNumber('');
   };
 
