@@ -361,7 +361,10 @@ function App() {
     setMaxOrderNum(nextNum);
     const newOrderNumber = `#${String(nextNum).padStart(3, '0')}`;
     const timestamp = getThaiTimeISO();
-    const customerName = tableNumber ? `โต๊ะ ${tableNumber}` : 'ไม่ระบุ';
+    
+    const count = localStorage.getItem('customer_count_' + tableNumber) || '';
+    const countText = count ? ` (${count} ท่าน)` : '';
+    const customerName = tableNumber ? `โต๊ะ ${tableNumber}${countText}` : 'ไม่ระบุ';
     const address = tableNumber ? `โต๊ะ ${tableNumber}` : 'ไม่ได้กรอกพิกัด';
 
     const rowsToSend = [];
@@ -398,6 +401,7 @@ function App() {
     setOrders(prev => [...prev, newOrder]);
     setCheckoutItems([]);
     setIsCheckoutOpen(false);
+    localStorage.removeItem('customer_count_' + tableNumber);
     setTableNumber('');
     navigate('/table-select');
 
@@ -436,6 +440,50 @@ function App() {
         }).catch(err => console.error('Silent print failed:', err));
       }
     } catch (e) { }
+  };
+
+  // =============================================
+  // NEW: Move or Merge Table
+  // =============================================
+  const handleMoveMergeTable = async (fromTable, toTable, isMerge) => {
+    // Optimistic update
+    setTableOrders(prev => prev.map(o => {
+      if (String(o.TableNumber) === String(fromTable)) {
+        return { ...o, TableNumber: toTable };
+      }
+      return o;
+    }));
+    
+    // Move customer count
+    const count = localStorage.getItem('customer_count_' + fromTable);
+    if (count) {
+      if (isMerge) {
+        const toCount = localStorage.getItem('customer_count_' + toTable);
+        if (!toCount) localStorage.setItem('customer_count_' + toTable, count);
+      } else {
+        localStorage.setItem('customer_count_' + toTable, count);
+      }
+      localStorage.removeItem('customer_count_' + fromTable);
+    }
+
+    setTableNumber(toTable);
+    navigate('/table-orders');
+    
+    try {
+      await fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({
+          action: 'moveTable',
+          fromTable: String(fromTable),
+          toTable: String(toTable)
+        })
+      });
+      setTimeout(() => fetchOrdersFromSheet(), 2000);
+    } catch (e) {
+      console.error('Error moving table:', e);
+    }
   };
 
   // =============================================
@@ -528,6 +576,7 @@ function App() {
               }}
               onRefresh={refreshTableOrders}
               isRefreshing={isRefreshing}
+              onMoveMerge={handleMoveMergeTable}
             />
         } />
 

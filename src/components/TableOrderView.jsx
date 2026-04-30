@@ -10,8 +10,17 @@ const TableOrderView = ({
   onDeleteItem,
   onBack,
   onRefresh,
-  isRefreshing
+  isRefreshing,
+  onMoveMerge
 }) => {
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState(''); // 'move' or 'merge'
+  const [targetTable, setTargetTable] = useState('');
+  
+  const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
+  const [currentCount, setCurrentCount] = useState(() => localStorage.getItem('customer_count_' + tableNumber) || '');
+  const [editCustomerCount, setEditCustomerCount] = useState(1);
+
   // Group items for display
   const pendingItems = (tableOrders || []).filter(
     o => String(o.TableNumber) === String(tableNumber) && o.Status !== 'paid'
@@ -57,10 +66,64 @@ const TableOrderView = ({
           <ChevronLeft size={22} />
         </button>
         <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'white' }}>
-            {lang === 'th' ? `โต๊ะ ${tableNumber}` : `Table ${tableNumber}`}
-          </h2>
-          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {lang === 'th' ? `โต๊ะ ${tableNumber}` : `Table ${tableNumber}`}
+              {currentCount && (
+                <span 
+                  onClick={() => {
+                    setEditCustomerCount(parseInt(currentCount, 10) || 1);
+                    setShowEditCustomerModal(true);
+                  }}
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: 'var(--accent)',
+                    background: 'rgba(249,115,22,0.1)',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    border: '1px solid rgba(249,115,22,0.3)'
+                  }}
+                >
+                  ({currentCount} {lang === 'th' ? 'ท่าน' : 'pax'})
+                </span>
+              )}
+            </h2>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                onClick={() => { setActionType('move'); setTargetTable(''); setShowActionModal(true); }}
+                style={{
+                  background: 'rgba(59,130,246,0.2)',
+                  border: '1px solid rgba(59,130,246,0.3)',
+                  borderRadius: '6px',
+                  color: '#60a5fa',
+                  padding: '2px 8px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'ย้ายโต๊ะ' : 'Move'}
+              </button>
+              <button
+                onClick={() => { setActionType('merge'); setTargetTable(''); setShowActionModal(true); }}
+                style={{
+                  background: 'rgba(16,185,129,0.2)',
+                  border: '1px solid rgba(16,185,129,0.3)',
+                  borderRadius: '6px',
+                  color: '#34d399',
+                  padding: '2px 8px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'รวมโต๊ะ' : 'Merge'}
+              </button>
+            </div>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '2px' }}>
             {lang === 'th' ? `${pendingItems.length} รายการ` : `${pendingItems.length} items`}
           </p>
         </div>
@@ -262,6 +325,207 @@ const TableOrderView = ({
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* Action Modal (Move / Merge) */}
+      {showActionModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '360px',
+            padding: '1.5rem',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'white', textAlign: 'center' }}>
+              {actionType === 'move' 
+                ? (lang === 'th' ? 'ย้ายโต๊ะ' : 'Move Table')
+                : (lang === 'th' ? 'รวมโต๊ะ' : 'Merge Table')}
+            </h3>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                {actionType === 'move' 
+                  ? (lang === 'th' ? 'ย้ายไปโต๊ะเบอร์ (โต๊ะว่าง):' : 'Move to table (empty):')
+                  : (lang === 'th' ? 'รวมกับโต๊ะเบอร์ (โต๊ะที่มีลูกค้า):' : 'Merge into table (occupied):')}
+              </label>
+              <input
+                type="text"
+                value={targetTable}
+                onChange={(e) => setTargetTable(e.target.value)}
+                placeholder={lang === 'th' ? 'ระบุเบอร์โต๊ะเป้าหมาย' : 'Enter target table'}
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '10px',
+                  color: 'white',
+                  padding: '0.8rem',
+                  fontSize: '1rem',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setShowActionModal(false)}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  padding: '0.8rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  if (targetTable && targetTable !== String(tableNumber)) {
+                    onMoveMerge(tableNumber, targetTable, actionType === 'merge');
+                    setShowActionModal(false);
+                  }
+                }}
+                disabled={!targetTable || targetTable === String(tableNumber)}
+                style={{
+                  flex: 1,
+                  background: actionType === 'move' ? '#3b82f6' : '#10b981',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  padding: '0.8rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  opacity: (!targetTable || targetTable === String(tableNumber)) ? 0.5 : 1
+                }}
+              >
+                {lang === 'th' ? 'ยืนยัน' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Customer Count Modal */}
+      {showEditCustomerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '320px',
+            padding: '1.5rem',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'white', textAlign: 'center' }}>
+              {lang === 'th' ? 'แก้ไขจำนวนลูกค้า' : 'Edit Customer Count'}
+            </h3>
+            
+            <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+                <button
+                  onClick={() => setEditCustomerCount(Math.max(1, editCustomerCount - 1))}
+                  style={{
+                    width: '40px', height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  -
+                </button>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--accent)', minWidth: '40px' }}>
+                  {editCustomerCount}
+                </span>
+                <button
+                  onClick={() => setEditCustomerCount(editCustomerCount + 1)}
+                  style={{
+                    width: '40px', height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.1)',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '1.5rem',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setShowEditCustomerModal(false)}
+                style={{
+                  flex: 1,
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  padding: '0.8rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.setItem('customer_count_' + tableNumber, editCustomerCount);
+                  setCurrentCount(String(editCustomerCount));
+                  setShowEditCustomerModal(false);
+                }}
+                style={{
+                  flex: 1,
+                  background: 'var(--accent)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  padding: '0.8rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'บันทึก' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

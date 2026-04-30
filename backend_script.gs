@@ -200,6 +200,23 @@ function doPost(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // Move or Merge tables
+  if (action === 'moveTable') {
+    var sheet = ss.getSheetByName('TableOrders');
+    var fromTable = String(postData.fromTable || '');
+    var toTable = String(postData.toTable || '');
+    var data = sheet.getDataRange().getValues();
+    var updated = false;
+    for (var i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === fromTable && data[i][8] !== 'paid') {
+        sheet.getRange(i + 1, 1).setValue(toTable);
+        updated = true;
+      }
+    }
+    return ContentService.createTextOutput(JSON.stringify({ success: updated }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // ==========================================
   // ORDER ACTIONS
   // ==========================================
