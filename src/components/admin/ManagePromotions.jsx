@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Percent, Tag } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../../utils/api';
 
 const ManageDiscounts = () => {
   const { lang } = useOutletContext();
@@ -27,7 +26,7 @@ const ManageDiscounts = () => {
     setDiscounts(newList);
     localStorage.setItem('pos_discounts', JSON.stringify(newList));
     window.dispatchEvent(new Event('pos_discounts_changed'));
-    fetch(GAS_URL, {
+    fetch(API_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
@@ -118,25 +117,25 @@ const ManageDiscounts = () => {
                 {discounts.map(item => (
                   <tr key={item.id}>
                     <td>
-                      <strong style={{ color: 'white' }}>{item.name}</strong>
+                      <strong style={{ color: 'var(--text-main)' }}>{item.name}</strong>
                     </td>
                     <td>
                       <span style={{
                         padding: '3px 12px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '600',
                         background: item.type === 'baht' ? 'rgba(34,197,94,0.12)' : 'rgba(96,165,250,0.12)',
-                        color: item.type === 'baht' ? '#22c55e' : '#60a5fa',
+                        color: item.type === 'baht' ? '#16a34a' : '#2563eb',
                         border: `1px solid ${item.type === 'baht' ? 'rgba(34,197,94,0.3)' : 'rgba(96,165,250,0.3)'}`
                       }}>
                         {item.type === 'baht' ? (lang === 'th' ? '฿ บาท' : '฿ Baht') : (lang === 'th' ? '% เปอร์เซ็น' : '% Percent')}
                       </span>
                     </td>
-                    <td style={{ fontWeight: '700', color: '#f87171', fontSize: '1rem' }}>
+                    <td style={{ fontWeight: '700', color: '#ef4444', fontSize: '1rem' }}>
                       {item.type === 'baht' ? `-฿${Number(item.value).toLocaleString()}` : `-${item.value}%`}
                     </td>
                     <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                       {item.categories && item.categories.length > 0
                         ? item.categories.map(s => getCategoryLabel(s)).join('  •  ')
-                        : <span style={{ color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' }}>{lang === 'th' ? 'ทุกหมวด' : 'All Categories'}</span>
+                        : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>{lang === 'th' ? 'ทุกหมวด' : 'All Categories'}</span>
                       }
                     </td>
                     <td>
@@ -165,7 +164,7 @@ const ManageDiscounts = () => {
                   ? (lang === 'th' ? 'แก้ไขส่วนลด' : 'Edit Discount')
                   : (lang === 'th' ? 'เพิ่มส่วนลดใหม่' : 'Add New Discount')}
               </h2>
-              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
                 <X size={24} />
               </button>
             </div>

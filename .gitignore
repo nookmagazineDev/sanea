@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Print Server — ค่าตั้งและสถานะการพิมพ์อัตโนมัติ เก็บไว้ในเครื่องที่รันเท่านั้น
+print-auto-config.json
+print-auto-state.json
+
+# ไฟล์ตั้งค่าการเชื่อมต่อฐานข้อมูล — ห้ามขึ้น git (มีรหัสผ่าน)
+.env
+.env.local
+.env.*.local

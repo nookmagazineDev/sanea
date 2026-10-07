@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, RefreshCw, ReceiptText, ChevronDown, ChevronUp, Phone, User, Clock } from 'lucide-react';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../utils/api';
 
 const parseItems = (raw) => {
   if (Array.isArray(raw)) return raw;
@@ -20,7 +19,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
     try { local = JSON.parse(localStorage.getItem('outstanding_bills') || '[]'); } catch {}
     let remote = [];
     try {
-      const res = await fetch(`${GAS_URL}?action=getOutstandingBills`);
+      const res = await fetch(`${API_URL}?action=getOutstandingBills`);
       const data = await res.json();
       if (data.success) remote = data.bills || [];
     } catch (e) {}
@@ -51,7 +50,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
           <ChevronLeft size={20} /> {lang === 'th' ? 'กลับ' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1 }}>
-          <ReceiptText size={24} color="#fbbf24" />
+          <ReceiptText size={24} color="#f1592a" />
           <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>{lang === 'th' ? 'รายการบิลค้าง' : 'Outstanding Bills'}</h1>
         </div>
         <button onClick={load} disabled={loading} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'white', cursor: 'pointer', padding: '0.5rem 0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
@@ -64,7 +63,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
         {/* Summary */}
         <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{lang === 'th' ? `บิลค้างทั้งหมด ${bills.length} บิล` : `${bills.length} bills`}</span>
-          <span style={{ color: '#fbbf24', fontWeight: 900, fontSize: '1.6rem' }}>฿{grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <span style={{ color: '#f1592a', fontWeight: 900, fontSize: '1.6rem' }}>฿{grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
         </div>
 
         {loading ? (
@@ -90,7 +89,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
                   >
                     <div style={{ background: 'rgba(180,83,9,0.18)', border: '1px solid rgba(180,83,9,0.4)', borderRadius: 10, padding: '0.5rem 0.85rem', textAlign: 'center', minWidth: 64 }}>
                       <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)' }}>{lang === 'th' ? 'โต๊ะ' : 'Table'}</div>
-                      <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#fbbf24', lineHeight: 1 }}>{b.tableNo}</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#f1592a', lineHeight: 1 }}>{b.tableNo}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
@@ -106,7 +105,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: '#fbbf24', fontWeight: 800, fontSize: '1.1rem' }}>฿{(Number(b.total) || 0).toLocaleString()}</div>
+                      <div style={{ color: '#f1592a', fontWeight: 800, fontSize: '1.1rem' }}>฿{(Number(b.total) || 0).toLocaleString()}</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
                         {lang === 'th' ? 'ดูรายการ' : 'Details'} {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                       </div>

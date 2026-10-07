@@ -1,0 +1,3 @@
+# สคริปต์ของ Windows ต้องเป็น CRLF เสมอ ไม่งั้นรันไม่ได้
+*.bat text eol=crlf
+*.vbs text eol=crlf

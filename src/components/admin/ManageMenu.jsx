@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Printer, FlaskConical, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
-import { emptyPopupFields, extractPopupConfig, flattenPopupConfig } from '../../utils/popupConfig';
+import { emptyPopupFields, extractPopupConfig, flattenPopupConfig, hasOwnPopupSteps } from '../../utils/popupConfig';
+import { API_URL, nextItemId } from '../../utils/api';
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+// ปุ่มเลื่อนลำดับเมนูขึ้น/ลง
+const ARROW_BTN = { padding: '0.15rem 0.4rem', lineHeight: 1, borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: '0.72rem' };
 
 const ManageMenu = () => {
   const { lang } = useOutletContext();
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
+  // สาขาทั้งหมด — ใช้ตั้งว่าเมนูขายเฉพาะสาขาไหน (มีสาขาเดียวไม่ต้องแสดงตัวเลือก)
+  const [branchList, setBranchList] = useState([]);
+
+  // ตารางเมนูเคยโชว์รหัสหมวดดิบ ๆ ซึ่งอ่านรู้เรื่องตอนรหัสเป็นคำอย่าง 'food'
+  // พอรหัสเป็น HL##### ต้องแปลงเป็นชื่อหมวดก่อนแสดง
+  const catLabel = (slug) => categories.find(c => c.slug === slug)?.name || slug || '—';
   const [printers, setPrinters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // แสดงตามหมวด / จัดลำดับการแสดง
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [orderDirty, setOrderDirty] = useState(false);
+  const [savingOrder, setSavingOrder] = useState(false);
+  const [orderMsg, setOrderMsg] = useState('');
 
   // BOM state
   const [bomConfig, setBomConfig] = useState({});
@@ -77,12 +90,13 @@ const ManageMenu = () => {
     setLoading(true);
 
     try {
-      const resp = await fetch(GAS_URL + '?action=getAllData');
+      const resp = await fetch(API_URL + '?action=getAllData');
       const data = await resp.json();
       if (data) {
         localStorage.setItem('gas_all_data', JSON.stringify(data));
         setMenuItems(Array.isArray(data.menu) ? data.menu.map(flattenPopupConfig) : []);
         setCategories(Array.isArray(data.categories) ? data.categories : []);
+        setBranchList(Array.isArray(data.branches) ? data.branches.filter(b => b && b.id && b.isActive !== false) : []);
       }
     } catch(e) {
       console.error('Failed to fetch menu:', e);
@@ -90,39 +104,11 @@ const ManageMenu = () => {
     setLoading(false);
   };
 
-  const handleSaveMenu = async (newMenuArray) => {
-    try {
-      await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({
-          action: 'saveMenu',
-          items: newMenuArray
-        })
-      });
-      setMenuItems(newMenuArray);
-      setIsModalOpen(false);
-
-      const cached = localStorage.getItem('gas_all_data');
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          parsed.menu = newMenuArray;
-          localStorage.setItem('gas_all_data', JSON.stringify(parsed));
-          window.dispatchEvent(new Event('appDataChanged'));
-        } catch(e) { console.error(e); }
-      }
-    } catch(e) {
-      alert('Failed to save to database');
-    }
-  };
-
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this menu item?')) {
       const updated = menuItems.filter(item => item.id !== id);
       try {
-        await fetch(GAS_URL, {
+        await fetch(API_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
@@ -161,10 +147,12 @@ const ManageMenu = () => {
     setIsModalOpen(true);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
+    // รหัสเดินต่อจากของเดิมเสมอ (SN00001, SN00002, …) ไม่ใช่ timestamp เหมือนเมื่อก่อน
+    const id = await nextItemId([...menuItems.map(m => m.id), ...categories.map(c => c.slug)]);
     setEditingItem({
-      id: Date.now(),
-      category: 'food',
+      id,
+      category: categories[0]?.slug || '',
       categories: [],
       name: '',
       nameEn: '',
@@ -175,7 +163,12 @@ const ManageMenu = () => {
       isActive: true,
       bundledItems: [],
       printerId: '',
-      prices: [{ name: '', price: '' }],
+      branches: [],
+      prices: [
+        { name: 'ปกติ', price: '' },
+        { name: 'Takehome', price: '' },
+        { name: 'Deli', price: '' }
+      ],
       ...emptyPopupFields()
     });
     setEditingBom([]);
@@ -245,7 +238,7 @@ const ManageMenu = () => {
     }
 
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -297,30 +290,66 @@ const ManageMenu = () => {
     }
   };
 
+  // ย่อรูปก่อนส่ง — รูปจากมือถือมักใหญ่ 3-8 MB อัปตรง ๆ จะช้าและกินโควตาฝากรูปเปล่า ๆ
+  // กว้าง 1000px พอสำหรับการ์ดเมนูแล้ว
+  const fileToResizedDataUrl = (file, maxDim = 1000, quality = 0.85) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim; }
+        else if (height >= width && height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = ev.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  // อัปโหลดรูปเมนูไปที่ ImgBB แล้วเก็บ "ลิงก์" ที่ได้ลงคอลัมน์ image ของชีต Menu
+  // → หน้าขาย/หน้าลูกค้าสั่งเอง ดึงลิงก์นี้ไปแสดงเอง
+  //
+  // ทำไมไม่ใช้ Google Drive: ลองแล้วติด "Access denied: DriveApp" ที่ฝั่ง Apps Script
+  // (สิทธิ์ Drive ไม่ติดมากับโทเคนของเว็บแอป) โค้ดฝั่ง Apps Script ยังอยู่ครบ
+  // เผื่ออยากกลับไปใช้ทีหลัง — เรียก action 'uploadImage' ได้เลย
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    e.target.value = '';
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('image', file);
-    const IMGBB_API_KEY = 'c46b3eebbda2ef57c71cb885cb305fe5';
-    
     try {
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      const dataUrl = await fileToResizedDataUrl(file);
+      const base64 = String(dataUrl).split(',')[1];
+      if (!base64) throw new Error('อ่านไฟล์รูปไม่ได้');
+
+      const IMGBB_API_KEY = 'c46b3eebbda2ef57c71cb885cb305fe5';
+      const formData = new FormData();
+      formData.append('image', base64); // ImgBB รับ base64 ตรง ๆ ได้ ไม่ต้องแนบเป็นไฟล์
+      formData.append('name', (editingItem?.name || 'menu').toString().slice(0, 60));
+
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
         method: 'POST',
         body: formData
       });
-      const data = await response.json();
-      
-      if (data.success) {
-        setEditingItem(prev => ({...prev, image: data.data.display_url}));
+      const data = await res.json().catch(() => null);
+
+      if (data && data.success && data.data && data.data.display_url) {
+        setEditingItem(prev => ({ ...prev, image: data.data.display_url }));
       } else {
-        alert('Upload failed: ' + (data.error?.message || 'Unknown error'));
+        throw new Error((data && data.error && data.error.message) || 'ImgBB ไม่ตอบลิงก์รูปกลับมา');
       }
-    } catch(err) {
-      console.error('ImgBB upload error:', err);
-      alert('Upload failed. Check your internet connection.');
+    } catch (err) {
+      console.error('Image upload error:', err);
+      alert(lang === 'th'
+        ? 'อัปโหลดรูปไม่สำเร็จ: ' + (err.message || err) + '\n\nลองใหม่อีกครั้ง หรือเช็กอินเทอร์เน็ต'
+        : 'Image upload failed: ' + (err.message || err));
     }
     setUploading(false);
   };
@@ -332,48 +361,115 @@ const ManageMenu = () => {
     return nameLow.includes(searchLow) || nameEnLow.includes(searchLow);
   });
 
-  return (
-    <div>
-      <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1>{lang === 'th' ? 'จัดการเมนู' : 'Manage Menu'}</h1>
-          <p>{lang === 'th' ? 'เพิ่ม แก้ไข หรือลบรายการอาหารและเครื่องดื่ม' : 'Add, edit, or remove food and drinks.'}</p>
-        </div>
-        <button className="admin-btn" onClick={handleAddNew}>
-          <Plus size={20} /> {lang === 'th' ? 'เพิ่มเมนูใหม่' : 'Add New Menu'}
-        </button>
-      </div>
 
-      <div className="admin-card">
-        <div style={{ marginBottom: '1rem', display: 'flex' }}>
-          <input 
-            type="text" 
-            placeholder={lang === 'th' ? 'ค้นหาเมนู (TH/EN)...' : 'Search menu...'} 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="admin-search-input"
-            style={{ width: '100%', maxWidth: '400px' }}
-          />
-        </div>
-        {loading ? <p>{lang === 'th' ? 'กำลังโหลดข้อมูลเมนู...' : 'Loading menu from database...'}</p> : (
-          <div className="admin-table-container">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>{lang === 'th' ? 'รูปภาพ' : 'Image'}</th>
-                  <th>{lang === 'th' ? 'ชื่อ (TH/EN)' : 'Name (TH/EN)'}</th>
-                  <th>{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
-                  <th>{lang === 'th' ? 'ราคา' : 'Price'}</th>
-                  <th>{lang === 'th' ? 'เครื่องปริ้น' : 'Printer'}</th>
-                  <th>{lang === 'th' ? 'สถานะ' : 'Status'}</th>
-                  <th>{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMenu.length > 0 ? filteredMenu.map(item => (
+  // ── แสดงตามหมวด + จัดลำดับการแสดง ──
+  // ลำดับใน menuItems = ลำดับที่หน้าขาย/หน้าลูกค้าแสดง (เซิร์ฟเวอร์ส่งมาเรียงตาม sortOrder แล้ว)
+  // เมนูอยู่ในส่วนของหมวดหลัก (category) เท่านั้น หมวดเสริมใช้แสดงหน้าขายอย่างเดียว
+  const priceOf = (item) => {
+    const base = Number(item.price);
+    if (Number.isFinite(base) && base > 0) return base;
+    const opts = Array.isArray(item.prices) ? item.prices.map(p => Number(p && p.price)).filter(n => Number.isFinite(n) && n > 0) : [];
+    return opts.length ? Math.min(...opts) : 0;
+  };
+
+  const menuGroups = (() => {
+    const known = new Set(categories.map(c => c.slug));
+    const groups = categories.map(c => ({ slug: c.slug, name: c.name || c.slug, icon: c.icon, items: menuItems.filter(m => m.category === c.slug) }));
+    const others = menuItems.filter(m => !known.has(m.category));
+    if (others.length) groups.push({ slug: '__none__', name: lang === 'th' ? 'ไม่มีหมวด' : 'Uncategorized', items: others });
+    return groups.filter(g => g.items.length > 0 && (!categoryFilter || g.slug === categoryFilter));
+  })();
+
+  // เอาเมนูของหมวดนั้นไปวางกลับตำแหน่งเดิมใน menuItems ตามลำดับใหม่
+  const reorderGroup = (slug, reordered) => {
+    const inGroup = (m) => (slug === '__none__' ? !categories.some(c => c.slug === m.category) : m.category === slug);
+    let k = 0;
+    setMenuItems(prev => prev.map(m => (inGroup(m) ? reordered[k++] : m)));
+    setOrderDirty(true);
+    setOrderMsg('');
+  };
+
+  const moveItem = (group, index, dir) => {
+    const target = index + dir;
+    if (target < 0 || target >= group.items.length) return;
+    const next = [...group.items];
+    [next[index], next[target]] = [next[target], next[index]];
+    reorderGroup(group.slug, next);
+  };
+
+  const sortGroupByPrice = (group, asc) => {
+    const next = [...group.items].sort((a, b) => (asc ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a)));
+    reorderGroup(group.slug, next);
+  };
+
+  const saveOrder = async () => {
+    // บันทึกเรียงตามหมวด (ลำดับหมวดในหน้าหมวดหมู่) แล้วตามลำดับในหมวด
+    const known = new Set(categories.map(c => c.slug));
+    const ordered = [
+      ...categories.flatMap(c => menuItems.filter(m => m.category === c.slug)),
+      ...menuItems.filter(m => !known.has(m.category))
+    ];
+    setSavingOrder(true); setOrderMsg('');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'saveMenuOrder', ids: ordered.map(m => String(m.id)) })
+      });
+      const json = await res.json().catch(() => null);
+      if (!json || json.success !== true) {
+        throw new Error(json && /Unknown action/i.test(json.error || '')
+          ? 'API ยังเป็นรุ่นเก่า — รัน update-api.bat ก่อน'
+          : (json && json.error) || 'เซิร์ฟเวอร์ไม่ตอบ success');
+      }
+      setMenuItems(ordered);
+      try {
+        const d = JSON.parse(localStorage.getItem('gas_all_data') || '{}');
+        if (Array.isArray(d.menu)) {
+          const pos = new Map(ordered.map((m, i) => [String(m.id), i]));
+          d.menu = [...d.menu].sort((a, b) => (pos.get(String(a.id)) ?? 1e9) - (pos.get(String(b.id)) ?? 1e9));
+          localStorage.setItem('gas_all_data', JSON.stringify(d));
+          window.dispatchEvent(new Event('appDataChanged'));
+        }
+      } catch {}
+      setOrderDirty(false);
+      setOrderMsg(lang === 'th' ? '✅ บันทึกลำดับแล้ว — หน้าขายเห็นภายใน 1 นาที' : '✅ Order saved');
+    } catch (e) {
+      setOrderMsg(`❌ ${lang === 'th' ? 'บันทึกลำดับไม่สำเร็จ' : 'Save failed'}: ${e.message || e}`);
+    }
+    setSavingOrder(false);
+  };
+
+  const tableHead = (withOrder) => (
+    <tr>
+      {withOrder && <th>{lang === 'th' ? 'ลำดับ' : 'Order'}</th>}
+      <th>{lang === 'th' ? 'รูปภาพ' : 'Image'}</th>
+      <th>{lang === 'th' ? 'ชื่อ (TH/EN)' : 'Name (TH/EN)'}</th>
+      <th>{lang === 'th' ? 'หมวดหมู่' : 'Category'}</th>
+      <th>{lang === 'th' ? 'ราคา' : 'Price'}</th>
+      <th>{lang === 'th' ? 'เครื่องปริ้น' : 'Printer'}</th>
+      <th>{lang === 'th' ? 'สถานะ' : 'Status'}</th>
+      <th>{lang === 'th' ? 'จัดการ' : 'Actions'}</th>
+    </tr>
+  );
+
+  // แถวเมนูหนึ่งแถว — orderCell = ช่องปุ่มเลื่อนลำดับ (โหมดค้นหาไม่มีช่องนี้)
+  const renderRow = (item, orderCell = null) => (
                   <tr key={item.id}>
+                    {orderCell}
                     <td>
-                      <img src={item.image} alt="food" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px' }} />
+                      <img
+                        src={item.image || `/images/item_${item.id}.svg`}
+                        alt="food"
+                        referrerPolicy="no-referrer"
+                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }}
+                        onError={(e) => {
+                          const sanitized = (item.name || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+                          if (!e.target.dataset.tried) {
+                            e.target.dataset.tried = 'true';
+                            e.target.src = `/images/${sanitized}.svg`;
+                          }
+                        }}
+                      />
                     </td>
                     <td>
                       <strong>{item.name}</strong><br/>
@@ -382,11 +478,11 @@ const ManageMenu = () => {
                     <td>
                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                          <span style={{ background: 'rgba(249,115,22,0.18)', border: '1px solid rgba(249,115,22,0.35)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem' }}>
-                           {item.category || 'food'}
+                           {catLabel(item.category)}
                          </span>
                          {Array.isArray(item.categories) && item.categories.map(slug => (
                            <span key={slug} style={{ background: 'rgba(255,255,255,0.1)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem' }}>
-                             +{slug}
+                             +{catLabel(slug)}
                            </span>
                          ))}
                        </div>
@@ -414,6 +510,11 @@ const ManageMenu = () => {
                       }}>
                         {item.isActive !== false ? (lang === 'th' ? 'เปิด' : 'Active') : (lang === 'th' ? 'ซ่อน' : 'Hidden')}
                       </span>
+                      {Array.isArray(item.branches) && item.branches.length > 0 && (
+                        <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#2563eb', fontWeight: 600 }}>
+                          🏠 {item.branches.map(id => (branchList.find(b => String(b.id) === String(id)) || {}).name || id).join(', ')}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <button className="admin-btn secondary" style={{ marginRight: '0.5rem', padding: '0.4rem' }} onClick={() => handleEdit(item)}>
@@ -424,17 +525,99 @@ const ManageMenu = () => {
                       </button>
                     </td>
                   </tr>
-                )) : (
+  );
+
+  return (
+    <div>
+      <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>{lang === 'th' ? 'จัดการเมนู' : 'Manage Menu'}</h1>
+          <p>{lang === 'th' ? 'เพิ่ม แก้ไข หรือลบรายการอาหารและเครื่องดื่ม' : 'Add, edit, or remove food and drinks.'}</p>
+        </div>
+        <button className="admin-btn" onClick={handleAddNew}>
+          <Plus size={20} /> {lang === 'th' ? 'เพิ่มเมนูใหม่' : 'Add New Menu'}
+        </button>
+      </div>
+
+      <div className="admin-card">
+        <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <input 
+            type="text" 
+            placeholder={lang === 'th' ? 'ค้นหาเมนู (TH/EN)...' : 'Search menu...'} 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="admin-search-input"
+            style={{ width: '100%', maxWidth: '320px' }}
+          />
+          <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} disabled={!!searchTerm.trim()}
+            style={{ padding: '0.55rem 0.75rem', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', fontFamily: 'inherit', background: '#fff' }}>
+            <option value="">{lang === 'th' ? 'ทุกหมวด' : 'All categories'}</option>
+            {categories.map(c => <option key={c.slug} value={c.slug}>{c.icon ? `${c.icon} ` : ''}{c.name || c.slug}</option>)}
+          </select>
+          <button className="admin-btn" onClick={saveOrder} disabled={!orderDirty || savingOrder}
+            style={{ padding: '0.55rem 1rem', opacity: orderDirty ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <Save size={16} /> {savingOrder ? (lang === 'th' ? 'กำลังบันทึก...' : 'Saving...') : (lang === 'th' ? 'บันทึกลำดับการแสดง' : 'Save order')}
+          </button>
+          {orderMsg && <span style={{ fontSize: '0.85rem', color: orderMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{orderMsg}</span>}
+          {orderDirty && !orderMsg && <span style={{ fontSize: '0.82rem', color: '#b45309' }}>{lang === 'th' ? 'มีการเปลี่ยนลำดับ ยังไม่ได้บันทึก' : 'Unsaved order changes'}</span>}
+        </div>
+        {searchTerm.trim() && (
+          <p style={{ margin: '-0.5rem 0 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {lang === 'th' ? 'ล้างช่องค้นหาเพื่อจัดลำดับการแสดง' : 'Clear search to reorder'}
+          </p>
+        )}
+        {loading ? <p>{lang === 'th' ? 'กำลังโหลดข้อมูลเมนู...' : 'Loading menu from database...'}</p> : searchTerm.trim() ? (
+          <div className="admin-table-container">
+            <table className="admin-table">
+              <thead>{tableHead(false)}</thead>
+              <tbody>
+                {filteredMenu.length > 0 ? filteredMenu.map(item => renderRow(item)) : (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-                      {lang === 'th' ? 'ไม่มีรายการเมนู ลองเริ่มต้นเพิ่มสิ่งแรกดูสิ!' : 'No menu items found. Get started by adding a new product!'}
+                    <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                      {lang === 'th' ? 'ไม่พบเมนูที่ค้นหา' : 'No menu found'}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        )}
+        ) : menuGroups.length === 0 ? (
+          <p style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+            {lang === 'th' ? 'ไม่มีรายการเมนู ลองเริ่มต้นเพิ่มสิ่งแรกดูสิ!' : 'No menu items found. Get started by adding a new product!'}
+          </p>
+        ) : menuGroups.map(group => (
+          <div key={group.slug} style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', margin: '0 0 0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem' }}>
+                {group.icon ? `${group.icon} ` : ''}{group.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.85rem' }}>({group.items.length})</span>
+              </h3>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <button className="admin-btn secondary" style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }} onClick={() => sortGroupByPrice(group, true)}>
+                  {lang === 'th' ? 'ราคา น้อย → มาก' : 'Price low → high'}
+                </button>
+                <button className="admin-btn secondary" style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }} onClick={() => sortGroupByPrice(group, false)}>
+                  {lang === 'th' ? 'ราคา มาก → น้อย' : 'Price high → low'}
+                </button>
+              </div>
+            </div>
+            <div className="admin-table-container">
+              <table className="admin-table">
+                <thead>{tableHead(true)}</thead>
+                <tbody>
+                  {group.items.map((item, idx) => renderRow(item, (
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span style={{ minWidth: 20, textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{idx + 1}</span>
+                        <button type="button" title={lang === 'th' ? 'เลื่อนขึ้น' : 'Move up'} disabled={idx === 0} onClick={() => moveItem(group, idx, -1)} style={{ ...ARROW_BTN, opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+                        <button type="button" title={lang === 'th' ? 'เลื่อนลง' : 'Move down'} disabled={idx === group.items.length - 1} onClick={() => moveItem(group, idx, 1)} style={{ ...ARROW_BTN, opacity: idx === group.items.length - 1 ? 0.3 : 1 }}>▼</button>
+                      </div>
+                    </td>
+                  )))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
       </div>
 
       {isModalOpen && editingItem && (
@@ -442,7 +625,7 @@ const ManageMenu = () => {
           <div className="admin-modal">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h2>{editingItem.name ? (lang === 'th' ? 'แก้ไขเมนู' : 'Edit Menu') : (lang === 'th' ? 'เพิ่มเมนูใหม่' : 'Add New Menu')}</h2>
-              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
                 <X size={24} />
               </button>
             </div>
@@ -489,7 +672,7 @@ const ManageMenu = () => {
                         value={row.name || ''}
                         onChange={e => updatePriceRow(idx, 'name', e.target.value)}
                         placeholder={lang === 'th' ? (idx === 0 ? 'ชื่อราคา (เช่น ปกติ)' : 'ชื่อราคา (เช่น พิเศษ)') : 'Price name'}
-                        style={{ flex: 2, padding: '0.55rem 0.7rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', margin: 0 }}
+                        style={{ flex: 2, padding: '0.55rem 0.7rem', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', borderRadius: '8px', margin: 0 }}
                       />
                       <div style={{ position: 'relative', flex: 1 }}>
                         <span style={{ position: 'absolute', left: '0.6rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>฿</span>
@@ -498,7 +681,7 @@ const ManageMenu = () => {
                           value={row.price ?? ''}
                           onChange={e => updatePriceRow(idx, 'price', e.target.value)}
                           placeholder="0"
-                          style={{ width: '100%', padding: '0.55rem 0.7rem 0.55rem 1.4rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '8px', margin: 0, boxSizing: 'border-box' }}
+                          style={{ width: '100%', padding: '0.55rem 0.7rem 0.55rem 1.4rem', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', borderRadius: '8px', margin: 0, boxSizing: 'border-box' }}
                         />
                       </div>
                       <button
@@ -506,18 +689,47 @@ const ManageMenu = () => {
                         onClick={() => removePriceRow(idx)}
                         disabled={(editingItem.prices || []).length <= 1}
                         title={lang === 'th' ? 'ลบราคานี้' : 'Remove'}
-                        style={{ background: 'none', border: 'none', color: (editingItem.prices || []).length <= 1 ? 'rgba(255,255,255,0.2)' : '#ef4444', cursor: (editingItem.prices || []).length <= 1 ? 'not-allowed' : 'pointer', padding: '0.3rem', display: 'flex' }}
+                        style={{ background: 'none', border: 'none', color: (editingItem.prices || []).length <= 1 ? '#cbd5e1' : '#ef4444', cursor: (editingItem.prices || []).length <= 1 ? 'not-allowed' : 'pointer', padding: '0.3rem', display: 'flex' }}
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   ))}
                 </div>
-                {(editingItem.prices || []).length < 5 && (
-                  <button type="button" className="admin-btn secondary" onClick={addPriceRow} style={{ fontSize: '0.82rem', padding: '0.4rem 0.9rem', marginTop: '0.5rem' }}>
-                    <Plus size={14} /> {lang === 'th' ? 'เพิ่มราคา' : 'Add price'}
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  {(editingItem.prices || []).length < 5 && (
+                    <button type="button" className="admin-btn secondary" onClick={addPriceRow} style={{ fontSize: '0.82rem', padding: '0.4rem 0.9rem' }}>
+                      <Plus size={14} /> {lang === 'th' ? 'เพิ่มราคา' : 'Add price'}
+                    </button>
+                  )}
+                  {!(editingItem.prices || []).some(p => p.name === 'ปกติ') && (
+                    <button
+                      type="button" className="admin-btn secondary"
+                      onClick={() => setEditingItem(prev => ({ ...prev, prices: [...(prev.prices || []), { name: 'ปกติ', price: '' }] }))}
+                      style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      + 🪑 ปกติ
+                    </button>
+                  )}
+                  {!(editingItem.prices || []).some(p => p.name === 'Takehome') && (
+                    <button
+                      type="button" className="admin-btn secondary"
+                      onClick={() => setEditingItem(prev => ({ ...prev, prices: [...(prev.prices || []), { name: 'Takehome', price: '' }] }))}
+                      style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      + 🛍️ Takehome
+                    </button>
+                  )}
+                  {!(editingItem.prices || []).some(p => p.name === 'Deli') && (
+                    <button
+                      type="button" className="admin-btn secondary"
+                      onClick={() => setEditingItem(prev => ({ ...prev, prices: [...(prev.prices || []), { name: 'Deli', price: '' }] }))}
+                      style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem', background: 'rgba(255,255,255,0.05)' }}
+                    >
+                      + 🛵 Deli
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="admin-form-group">
@@ -537,45 +749,90 @@ const ManageMenu = () => {
               {categories.length > 0 && (
                 <div className="admin-form-group">
                   <label>{lang === 'th' ? 'อยู่ในหมวดเพิ่มเติม (เลือกได้หลายหมวด)' : 'Also show in (multiple categories)'}</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.35rem' }}>
-                    {categories.filter(c => c.slug !== editingItem.category).map(c => {
-                      const checked = Array.isArray(editingItem.categories) && editingItem.categories.includes(c.slug);
-                      return (
-                        <label
-                          key={c.slug}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '0.4rem',
-                            padding: '0.4rem 0.7rem', borderRadius: '8px', cursor: 'pointer',
-                            background: checked ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.05)',
-                            border: `1px solid ${checked ? 'rgba(249,115,22,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                            fontSize: '0.85rem', color: 'white'
-                          }}
+                  {(() => {
+                    const picked = Array.isArray(editingItem.categories) ? editingItem.categories : [];
+                    // หมวดหลักไม่ต้องเลือกซ้ำ และที่เลือกไปแล้วก็ไม่ต้องโผล่ในรายการให้เลือกอีก
+                    const pickable = categories.filter(c => c.slug !== editingItem.category && !picked.includes(c.slug));
+                    const pickedCats = picked
+                      .filter(slug => slug !== editingItem.category)
+                      .map(slug => categories.find(c => c.slug === slug) || { slug, name: slug, nameEn: slug });
+
+                    return (
+                      <>
+                        <select
+                          value=""
+                          disabled={pickable.length === 0}
+                          onChange={e => { if (e.target.value) handleExtraCategoryToggle(e.target.value); }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => handleExtraCategoryToggle(c.slug)}
-                          />
-                          {lang === 'th' ? c.name : c.nameEn}
-                        </label>
-                      );
-                    })}
-                  </div>
+                          <option value="">
+                            {pickable.length === 0
+                              ? (lang === 'th' ? '— เลือกครบทุกหมวดแล้ว —' : '— All categories added —')
+                              : (lang === 'th' ? '— เลือกหมวดที่จะเพิ่ม —' : '— Add a category —')}
+                          </option>
+                          {pickable.map(c => (
+                            <option key={c.slug} value={c.slug}>{lang === 'th' ? c.name : c.nameEn}</option>
+                          ))}
+                        </select>
+
+                        {pickedCats.length > 0 ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem' }}>
+                            {pickedCats.map(c => (
+                              <span
+                                key={c.slug}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '0.45rem',
+                                  padding: '0.35rem 0.5rem 0.35rem 0.7rem', borderRadius: '999px',
+                                  background: 'rgba(234,179,8,0.18)', border: '1.5px solid var(--accent)',
+                                  fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)'
+                                }}
+                              >
+                                {lang === 'th' ? c.name : c.nameEn}
+                                <button
+                                  type="button"
+                                  onClick={() => handleExtraCategoryToggle(c.slug)}
+                                  title={lang === 'th' ? 'เอาออก' : 'Remove'}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '1.15rem', height: '1.15rem', padding: 0, borderRadius: '999px',
+                                    border: 'none', background: 'rgba(0,0,0,0.12)', color: 'var(--text-main)',
+                                    fontSize: '0.85rem', lineHeight: 1, cursor: 'pointer'
+                                  }}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {lang === 'th'
+                              ? 'ยังไม่ได้เลือกหมวดเพิ่มเติม — เมนูนี้จะขึ้นเฉพาะในหมวดหลักเท่านั้น'
+                              : 'No extra categories — this item shows only in its primary category.'}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
               <div className="admin-form-group">
-                <label>{lang === 'th' ? 'รูปภาพ (อัปโหลดจากคอมฯ หรือวาง URL)' : 'Image (Upload from PC or enter Cloud URL)'}</label>
+                <label>{lang === 'th' ? 'รูปภาพ (อัปโหลดจากเครื่อง หรือวาง URL)' : 'Image (Upload from this device, or paste a URL)'}</label>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <input type="file" accept="image/*" onChange={handleImageUpload} style={{ flex: 1, padding: '0.5rem', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} disabled={uploading} style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', borderRadius: '8px' }} />
                   {uploading && <span style={{ color: 'var(--accent)', fontSize: '0.85rem' }}>{lang === 'th' ? 'กำลังอัปโหลด...' : 'Uploading...'}</span>}
                 </div>
                 <input value={editingItem.image} onChange={e => setEditingItem({...editingItem, image: e.target.value})} placeholder={lang === 'th' ? 'หรือวางลิงก์รูปภาพที่นี่' : 'Or paste image URL here'} />
                 {editingItem.image && (
                   <div style={{ marginTop: '0.5rem' }}>
-                    <img src={editingItem.image} alt="Preview" style={{ height: '80px', borderRadius: '8px', objectFit: 'cover' }} />
+                    <img src={editingItem.image} alt="Preview" referrerPolicy="no-referrer" style={{ height: '80px', borderRadius: '8px', objectFit: 'cover' }} />
                   </div>
                 )}
+                <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {lang === 'th'
+                    ? 'ไฟล์จะถูกย่อเหลือกว้างสุด 1000px ก่อนอัปโหลด — อย่าลืมกดบันทึก แล้วรูปจะขึ้นในหน้าขายและหน้าลูกค้าสั่งเองอัตโนมัติ'
+                    : 'Files are resized to max 1000px before upload — remember to save; the photo then shows on the POS and kiosk screens.'}
+                </div>
               </div>
 
               <div className="admin-form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -591,8 +848,45 @@ const ManageMenu = () => {
                 </label>
               </div>
 
+              {/* สาขาที่ขายเมนูนี้ */}
+              {branchList.length > 1 && (() => {
+                const chosen = Array.isArray(editingItem.branches) ? editingItem.branches.map(String) : [];
+                const allBranches = chosen.length === 0;
+                const toggle = (id) => {
+                  const next = chosen.includes(id) ? chosen.filter(x => x !== id) : [...chosen, id];
+                  setEditingItem({ ...editingItem, branches: next });
+                };
+                return (
+                  <div className="admin-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.25rem' }}>
+                    <label style={{ marginBottom: '0.5rem', display: 'block' }}>{lang === 'th' ? 'แสดงที่สาขา' : 'Sold at branches'}</label>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button type="button" onClick={() => setEditingItem({ ...editingItem, branches: [] })}
+                        style={{ padding: '0.4rem 0.8rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: allBranches ? 700 : 500,
+                          border: `1.5px solid ${allBranches ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: allBranches ? 'rgba(234,179,8,0.15)' : '#fff', color: 'var(--text-main)' }}>
+                        {lang === 'th' ? 'ทุกสาขา' : 'All branches'}
+                      </button>
+                      {branchList.map(b => {
+                        const on = chosen.includes(String(b.id));
+                        return (
+                          <button type="button" key={b.id} onClick={() => toggle(String(b.id))}
+                            style={{ padding: '0.4rem 0.8rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: on ? 700 : 500,
+                              border: `1.5px solid ${on ? '#2563eb' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(37,99,235,0.1)' : '#fff', color: 'var(--text-main)' }}>
+                            {on ? '✓ ' : ''}{b.name || b.id}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                      {lang === 'th'
+                        ? (allBranches ? 'ขายทุกสาขา (รวมสาขาที่เพิ่มใหม่ในอนาคต)' : 'สาขาที่ไม่ได้เลือกจะไม่เห็นเมนูนี้เลย ทั้งหน้าขายและหน้าลูกค้า — ต้องรัน update-api.bat ก่อนถึงจะมีผล')
+                        : (allBranches ? 'Sold at every branch' : 'Unselected branches will not see this item at all.')}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Printer Selection */}
-              <div className="admin-form-group" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem', marginTop: '0.25rem' }}>
+              <div className="admin-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.25rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
                   <Printer size={15} /> {lang === 'th' ? 'ส่งปริ้นไปที่เครื่อง' : 'Send to Printer'}
                 </label>
@@ -616,7 +910,7 @@ const ManageMenu = () => {
               </div>
 
               {/* Bundled Items */}
-              <div className="admin-form-group" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <div className="admin-form-group" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <label style={{ marginBottom: '0.5rem', display: 'block' }}>
                   {lang === 'th' ? 'เมนูที่เพิ่มอัตโนมัติเมื่อสั่ง (Bundled Items):' : 'Auto-add items when ordered (Bundled Items):'}
                 </label>
@@ -642,10 +936,10 @@ const ManageMenu = () => {
                         value={count === 0 ? '' : count}
                         placeholder="0"
                         onChange={e => updateCount(e.target.value)}
-                        style={{ width: '60px', padding: '0.2rem', margin: 0, background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '4px', textAlign: 'center' }}
+                        style={{ width: '60px', padding: '0.2rem', margin: 0, background: 'var(--bg-main)', border: '1px solid var(--border-color)', color: 'var(--text-main)', borderRadius: '4px', textAlign: 'center' }}
                       />
                       <span style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => updateCount(count === 0 ? 1 : 0)}>
-                        <span style={{ fontWeight: count > 0 ? 'bold' : 'normal', color: count > 0 ? 'var(--accent)' : 'inherit' }}>{m.name}</span>
+                        <span style={{ fontWeight: count > 0 ? 'bold' : 'normal', color: count > 0 ? 'var(--accent-hover)' : 'inherit' }}>{m.name}</span>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginLeft: '0.5rem' }}>(฿{m.price})</span>
                       </span>
                     </div>
@@ -654,23 +948,23 @@ const ManageMenu = () => {
               </div>
 
               {/* ── Popup / ตัวเลือกตอนสั่ง (Order Wizard) ───────────── */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
                   onClick={() => setShowPopups(v => !v)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '0.5rem',
-                    background: 'none', border: 'none', color: 'white', cursor: 'pointer',
+                    background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer',
                     fontWeight: 600, fontSize: '0.9rem', padding: 0, marginBottom: showPopups ? '1rem' : 0,
                     width: '100%', textAlign: 'left'
                   }}
                 >
-                  <SlidersHorizontal size={16} style={{ color: 'var(--accent)' }} />
+                  <SlidersHorizontal size={16} style={{ color: 'var(--accent-hover)' }} />
                   {lang === 'th' ? 'ตัวเลือกตอนสั่ง (Popup)' : 'Order Options (Popups)'}
                   {(() => {
                     const n = [1,2,3,4,5,6].filter(i => editingItem[`hasPopup${i}`] === true).length;
                     return n > 0 ? (
-                      <span style={{ background: 'rgba(34,197,94,0.18)', color: '#22c55e', padding: '0.1rem 0.45rem', borderRadius: 4, fontSize: '0.73rem', fontWeight: 700 }}>
+                      <span style={{ background: 'rgba(34,197,94,0.18)', color: '#16a34a', padding: '0.1rem 0.45rem', borderRadius: 4, fontSize: '0.73rem', fontWeight: 700 }}>
                         {n} {lang === 'th' ? 'ป๊อปอัพ' : 'popups'}
                       </span>
                     ) : null;
@@ -692,6 +986,7 @@ const ManageMenu = () => {
                       const maxProp = `popup${num}Max`;
                       const freeProp = `popup${num}Free`;
                       const repeatProp = `popup${num}AllowRepeat`;
+                      const separateProp = `popup${num}Separate`;
 
                       return (
                         <div key={num} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -700,13 +995,13 @@ const ManageMenu = () => {
                             <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{lang === 'th' ? `แสดง Popup ${num}` : `Show Popup ${num}`}</span>
                           </label>
                           {hasPopup === true && (
-                            <div style={{ marginLeft: '1.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.75rem', borderRadius: '8px' }}>
+                            <div style={{ marginLeft: '1.5rem', background: 'var(--bg-main)', border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: '8px' }}>
                               <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
                                 <label>{lang === 'th' ? 'ดึงเมนูจากหมวดหมู่:' : 'Pull items from category:'}</label>
                                 <select
                                   value={editingItem[categoryProp] || ''}
                                   onChange={e => setEditingItem({ ...editingItem, [categoryProp]: e.target.value, [itemsProp]: [] })}
-                                  style={{ padding: '0.5rem', width: '100%', borderRadius: '4px', background: 'var(--bg-card)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}
+                                  style={{ padding: '0.5rem', width: '100%', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
                                 >
                                   <option value="">{lang === 'th' ? '-- เลือกหมวดหมู่ --' : '-- Select Category --'}</option>
                                   {categories.map(c => <option key={c.slug} value={c.slug}>{c.name}</option>)}
@@ -714,17 +1009,29 @@ const ManageMenu = () => {
                               </div>
                               <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
                                 <label>{lang === 'th' ? 'บังคับเลือกอย่างน้อยกี่รายการ (0 = ไม่บังคับ):' : 'Min Required (0 = Optional):'}</label>
-                                <input type="number" min="0" value={editingItem[minProp] || 0} onChange={e => setEditingItem({ ...editingItem, [minProp]: parseInt(e.target.value) || 0 })} style={{ width: '120px', padding: '0.4rem', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                <input type="number" min="0" value={editingItem[minProp] || 0} onChange={e => setEditingItem({ ...editingItem, [minProp]: parseInt(e.target.value) || 0 })} style={{ width: '120px', padding: '0.4rem', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }} />
                               </div>
                               <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
                                 <label>{lang === 'th' ? 'จำกัดจำนวนสูงสุด (0 = ไม่จำกัด):' : 'Max Allowed (0 = Unlimited):'}</label>
-                                <input type="number" min="0" value={editingItem[maxProp] || 0} onChange={e => setEditingItem({ ...editingItem, [maxProp]: parseInt(e.target.value) || 0 })} style={{ width: '120px', padding: '0.4rem', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }} />
+                                <input type="number" min="0" value={editingItem[maxProp] || 0} onChange={e => setEditingItem({ ...editingItem, [maxProp]: parseInt(e.target.value) || 0 })} style={{ width: '120px', padding: '0.4rem', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }} />
                               </div>
                               <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: 0 }}>
                                   <input type="checkbox" checked={editingItem[freeProp] === true} onChange={e => setEditingItem({ ...editingItem, [freeProp]: e.target.checked })} style={{ width: 'auto', marginBottom: 0 }} />
                                   <span style={{ fontSize: '0.85rem' }}>{lang === 'th' ? 'ฟรี (ไม่บวกราคาเพิ่มในบิล)' : 'Free (Does not add cost)'}</span>
                                 </label>
+                              </div>
+                              {/* แยกเป็นรายการของตัวเอง หรือเป็นตัวเลือกใต้เมนูหลัก */}
+                              <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginBottom: 0 }}>
+                                  <input type="checkbox" checked={editingItem[separateProp] !== false} onChange={e => setEditingItem({ ...editingItem, [separateProp]: e.target.checked })} style={{ width: 'auto', marginBottom: 0 }} />
+                                  <span style={{ fontSize: '0.85rem' }}>{lang === 'th' ? 'แยกเป็นรายการต่างหาก (ขึ้นคนละบรรทัดในบิล/ใบครัว)' : 'List as its own order line'}</span>
+                                </label>
+                                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '1.5rem' }}>
+                                  {lang === 'th'
+                                    ? 'ค่าเริ่มต้นคือแยก — รายการฟรีจะขึ้นเป็น ฿0 รายการที่คิดเงินจะติดราคาของตัวเองไปด้วย และวิ่งไปเครื่องพิมพ์ของเมนูนั้นเอง ติ๊กออกถ้าเป็นตัวเลือกล้วน ๆ (เผ็ดน้อย/ไข่ดาว) ที่อยากให้ห้อยใต้เมนูหลัก'
+                                    : 'On by default — free picks show as ฿0, paid picks carry their own price, and each routes to that item’s printer. Untick for pure options (spice level, fried egg).'}
+                                </div>
                               </div>
                               {/* เลือกซ้ำได้ / ไม่ได้ */}
                               <div className="admin-form-group" style={{ marginBottom: '0.5rem' }}>
@@ -745,7 +1052,15 @@ const ManageMenu = () => {
                                     {menuItems.filter(m => m.category === editingItem[categoryProp]).map(it => (
                                       <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
                                         <input type="checkbox" checked={(editingItem[itemsProp] || []).includes(it.id)} onChange={() => handlePopupItemToggle(itemsProp, it.id)} style={{ width: 'auto', margin: 0 }} />
-                                        <span style={{ flex: 1 }}>{it.name}</span>
+                                        <span style={{ flex: 1 }}>
+                                          {it.name}
+                                          {/* เมนูนี้มีป๊อปอัพของตัวเอง → ตอนขายจะเด้งป๊อปอัพซ้อนให้เลือกตัวเลือกย่อย */}
+                                          {hasOwnPopupSteps(it) && (
+                                            <span style={{ marginLeft: '0.4rem', fontSize: '0.68rem', fontWeight: 700, color: '#16a34a', background: 'rgba(34,197,94,0.15)', borderRadius: 4, padding: '0.05rem 0.35rem' }}>
+                                              {lang === 'th' ? 'มีป๊อปอัพซ้อน' : 'nested popup'}
+                                            </span>
+                                          )}
+                                        </span>
                                         {editingItem[repeatProp] !== false && (
                                           <>
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{lang === 'th' ? 'max/รายการ:' : 'max/item:'}</span>
@@ -753,7 +1068,7 @@ const ManageMenu = () => {
                                               type="number" min="0"
                                               value={(editingItem[itemsMaxProp] || {})[it.id] || 0}
                                               onChange={e => setEditingItem({ ...editingItem, [itemsMaxProp]: { ...(editingItem[itemsMaxProp] || {}), [it.id]: parseInt(e.target.value) || 0 } })}
-                                              style={{ width: '50px', padding: '0.2rem 0.4rem', borderRadius: '4px', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.8rem' }}
+                                              style={{ width: '50px', padding: '0.2rem 0.4rem', borderRadius: '4px', background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}
                                             />
                                           </>
                                         )}
@@ -771,26 +1086,39 @@ const ManageMenu = () => {
                       <input type="checkbox" checked={editingItem.hasDining !== false} onChange={e => setEditingItem({ ...editingItem, hasDining: e.target.checked })} style={{ width: 'auto', marginBottom: 0 }} />
                       <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{lang === 'th' ? 'แสดง ทานร้าน/ห่อกลับ' : 'Show Dining Options'}</span>
                     </label>
+
+                    {/* หมายเหตุถึงครัว — รายการที่ให้เลือกตั้งรวมไว้ที่หน้าตั้งค่า ตรงนี้แค่เปิด/ปิดของเมนูนี้ */}
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', marginBottom: 0, marginTop: '0.6rem' }}>
+                      <input type="checkbox" checked={editingItem.hasNotes !== false} onChange={e => setEditingItem({ ...editingItem, hasNotes: e.target.checked })} style={{ width: 'auto', marginBottom: 0, marginTop: '0.15rem' }} />
+                      <span>
+                        <span style={{ display: 'block', fontSize: '0.9rem', fontWeight: 'bold' }}>{lang === 'th' ? 'ถามหมายเหตุถึงครัว' : 'Ask for a kitchen note'}</span>
+                        <span style={{ display: 'block', fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {lang === 'th'
+                            ? 'เช่น ไม่เผ็ด / ไม่ใส่ผักชี — แก้รายการที่ให้เลือกได้ที่ จัดการหลังบ้าน → ตั้งค่า'
+                            : 'e.g. not spicy / no coriander — edit the list under Admin → Settings'}
+                        </span>
+                      </span>
+                    </label>
                   </div>
                 )}
               </div>
 
               {/* ── BOM / สูตรวัตถุดิบ ──────────────────────────────── */}
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
                   onClick={() => setShowBom(v => !v)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '0.5rem',
-                    background: 'none', border: 'none', color: 'white', cursor: 'pointer',
+                    background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer',
                     fontWeight: 600, fontSize: '0.9rem', padding: 0, marginBottom: showBom ? '1rem' : 0,
                     width: '100%', textAlign: 'left'
                   }}
                 >
-                  <FlaskConical size={16} style={{ color: 'var(--accent)' }} />
+                  <FlaskConical size={16} style={{ color: 'var(--accent-hover)' }} />
                   {lang === 'th' ? 'สูตรวัตถุดิบ (BOM)' : 'Bill of Materials (BOM)'}
                   {editingBom.length > 0 && (
-                    <span style={{ background: 'rgba(34,197,94,0.18)', color: '#22c55e', padding: '0.1rem 0.45rem', borderRadius: 4, fontSize: '0.73rem', fontWeight: 700 }}>
+                    <span style={{ background: 'rgba(34,197,94,0.18)', color: '#16a34a', padding: '0.1rem 0.45rem', borderRadius: 4, fontSize: '0.73rem', fontWeight: 700 }}>
                       {editingBom.length} รายการ · ฿{bomTotalCost.toFixed(2)}
                     </span>
                   )}
@@ -808,7 +1136,7 @@ const ManageMenu = () => {
                           {
                             label: 'Margin',
                             value: `${editingItem.price > 0 ? ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100).toFixed(1) : '0.0'}%`,
-                            color: editingItem.price > 0 && ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100) >= 50 ? '#22c55e' : '#eab308'
+                            color: editingItem.price > 0 && ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100) >= 50 ? '#22c55e' : '#d84518'
                           },
                         ].map(c => (
                           <div key={c.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '0.45rem 0.85rem', textAlign: 'center', flex: 1, minWidth: 90 }}>
@@ -867,7 +1195,7 @@ const ManageMenu = () => {
                       <Plus size={14} /> เพิ่มวัตถุดิบ
                     </button>
                     {ingredients.length === 0 && (
-                      <p style={{ color: '#eab308', fontSize: '0.78rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                      <p style={{ color: '#d84518', fontSize: '0.78rem', marginTop: '0.5rem', marginBottom: 0 }}>
                         💡 ยังไม่มีคลังวัตถุดิบ — ไปตั้งค่าที่หน้า <strong>BOM</strong> แท็บ "วัตถุดิบ" ก่อน
                       </p>
                     )}

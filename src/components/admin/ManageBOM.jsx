@@ -3,16 +3,13 @@ import {
   FlaskConical, Save, Plus, Trash2, Search,
   Package, RefreshCw, Upload, ChevronRight, Edit2, X
 } from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../../utils/api';
 
 // ─── Helper: derive current BOM rows for selectedMenuId from bomConfig ───────
 const getBomRows = (bomConfig, menuId) =>
   menuId ? (bomConfig[String(menuId)] || []) : [];
 
 const ManageBOM = () => {
-  const { lang } = useOutletContext();
 
   // ─── Tabs ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('bom'); // 'bom' | 'ingredients'
@@ -65,7 +62,7 @@ const ManageBOM = () => {
     }
     setIngLoading(true);
     try {
-      const resp = await fetch(GAS_URL + '?action=getIngredients');
+      const resp = await fetch(API_URL + '?action=getIngredients');
       const data = await resp.json();
       if (data.success && Array.isArray(data.ingredients)) {
         setIngredients(data.ingredients);
@@ -155,7 +152,7 @@ const ManageBOM = () => {
       });
     });
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -176,7 +173,7 @@ const ManageBOM = () => {
       : [...ingredients, normalized];
     setIngredients(newList);
     localStorage.setItem('bom_ingredients', JSON.stringify(newList));
-    fetch(GAS_URL, {
+    fetch(API_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
@@ -190,7 +187,7 @@ const ManageBOM = () => {
     const newList = ingredients.filter(i => i.id !== id);
     setIngredients(newList);
     localStorage.setItem('bom_ingredients', JSON.stringify(newList));
-    fetch(GAS_URL, {
+    fetch(API_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
@@ -199,7 +196,7 @@ const ManageBOM = () => {
   };
 
   // ─── UI helpers ──────────────────────────────────────────────────────────
-  const marginColor = margin >= 60 ? '#22c55e' : margin >= 35 ? '#eab308' : '#ef4444';
+  const marginColor = margin >= 60 ? '#22c55e' : margin >= 35 ? '#d84518' : '#ef4444';
 
   const TAB_BTN = (tab, label, badge) => (
     <button
@@ -210,7 +207,7 @@ const ManageBOM = () => {
         fontSize: '0.9rem', fontWeight: 600, transition: 'all 0.15s',
         background: activeTab === tab ? 'var(--accent)' : 'rgba(255,255,255,0.05)',
         borderColor: activeTab === tab ? 'var(--accent)' : 'rgba(255,255,255,0.15)',
-        color: 'white', display: 'flex', alignItems: 'center', gap: '0.4rem'
+        color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem'
       }}
     >
       {label}
@@ -405,7 +402,7 @@ const ManageBOM = () => {
                                 />
                               )}
                               {row.ingId && ingredients.length > 0 && !ingredients.find(i => i.id === row.ingId) && (
-                                <div style={{ fontSize: '0.72rem', color: '#eab308', marginTop: '0.15rem' }}>⚠ ไม่พบในคลังวัตถุดิบ</div>
+                                <div style={{ fontSize: '0.72rem', color: '#d84518', marginTop: '0.15rem' }}>⚠ ไม่พบในคลังวัตถุดิบ</div>
                               )}
                             </td>
                             {/* Quantity */}
@@ -480,7 +477,7 @@ const ManageBOM = () => {
                 </button>
               </div>
 
-              <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', padding: '0.8rem 1rem', borderRadius: 10, color: '#eab308', fontSize: '0.8rem', lineHeight: 1.6 }}>
+              <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', padding: '0.8rem 1rem', borderRadius: 10, color: '#d84518', fontSize: '0.8rem', lineHeight: 1.6 }}>
                 💡 <strong>วิธีใช้:</strong> บันทึก BOM ทุกเมนูที่ต้องการ แล้วกด <strong>"Sync ไปยัง GAS"</strong> เพื่อส่งข้อมูลไปชีท BOM
                 — ระบบจะตัดสต็อกอัตโนมัติเมื่อมีออเดอร์ผ่าน GAS action <code>deductStock</code>
               </div>
@@ -599,7 +596,7 @@ const ManageBOM = () => {
               <h2 style={{ margin: 0 }}>
                 {ingredients.find(i => i.id === editingIng.id) ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบใหม่'}
               </h2>
-              <button onClick={() => setEditingIng(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+              <button onClick={() => setEditingIng(null)} style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }}>
                 <X size={22} />
               </button>
             </div>

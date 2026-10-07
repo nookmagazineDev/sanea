@@ -1,9 +1,9 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UtensilsCrossed, Tag, LogOut, Store, Layers, FileSpreadsheet, Globe, Users, Settings, Package, FlaskConical, BarChart2 } from 'lucide-react';
+import { LayoutDashboard, UtensilsCrossed, Tag, LogOut, Store, Layers, FileSpreadsheet, Globe, Users, Settings, Package, FlaskConical, BarChart2, Building2 } from 'lucide-react';
 import './Admin.css';
 
-const AdminLayout = ({ lang, setLang, isCashier = false }) => {
+const AdminLayout = ({ lang, setLang, isCashier = false, onLogout }) => {
   const navigate = useNavigate();
   // แคชเชียร์เห็นเฉพาะหน้าเหล่านี้
   const allowAll = !isCashier;
@@ -13,7 +13,21 @@ const AdminLayout = ({ lang, setLang, isCashier = false }) => {
        <aside className="admin-sidebar">
           <div className="admin-logo">
              <h2>👑 {lang === 'th' ? 'แผงควบคุม' : 'Admin Panel'}</h2>
-             <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>{lang === 'th' ? 'เสน่ห์' : 'SA-NAE'}</p>
+             <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เสน่ห์</p>
+
+             {/* กลับหน้าร้าน/ออกจากระบบ อยู่บนสุด — เดิมอยู่ท้ายเมนูยาว ๆ ต้องเลื่อนลงไปหา */}
+             <div className="admin-quick">
+                <button type="button" onClick={() => navigate('/index')}>
+                   <Store size={16} /> {lang === 'th' ? 'กลับหน้าร้าน' : 'Storefront'}
+                </button>
+                <button
+                   type="button"
+                   className="danger"
+                   onClick={() => { if (onLogout && window.confirm(lang === 'th' ? 'ออกจากระบบ?' : 'Log out?')) onLogout(); }}
+                >
+                   <LogOut size={16} /> {lang === 'th' ? 'ออกจากระบบ' : 'Logout'}
+                </button>
+             </div>
           </div>
           <nav className="admin-nav">
              <NavLink to="/admin" end className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
@@ -22,9 +36,22 @@ const AdminLayout = ({ lang, setLang, isCashier = false }) => {
              <NavLink to="/admin/menu" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
                 <UtensilsCrossed size={20} /> {lang === 'th' ? 'จัดการเมนู' : 'Manage Menu'}
              </NavLink>
+             {allowAll && (
+               <NavLink to="/admin/branch-menu" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
+                  <Store size={20} /> {lang === 'th' ? 'เมนูรายสาขา' : 'Branch Menu'}
+               </NavLink>
+             )}
              <NavLink to="/admin/categories" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
                 <Layers size={20} /> {lang === 'th' ? 'หมวดหมู่' : 'Categories'}
              </NavLink>
+             <NavLink to="/admin/tables" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
+                <LayoutDashboard size={20} /> {lang === 'th' ? 'จัดการโต๊ะ & ราคา' : 'Manage Tables'}
+             </NavLink>
+             {allowAll && (
+               <NavLink to="/admin/branches" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
+                  <Building2 size={20} /> {lang === 'th' ? 'สาขา' : 'Branches'}
+               </NavLink>
+             )}
              {allowAll && (
                <NavLink to="/admin/users" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
                   <Users size={20} /> {lang === 'th' ? 'พนักงาน' : 'Users'}
@@ -73,10 +100,6 @@ const AdminLayout = ({ lang, setLang, isCashier = false }) => {
                onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
              >
                 <Globe size={20} /> {lang === 'th' ? 'English' : 'ภาษาไทย'}
-             </button>
-
-             <button className="admin-link logout" style={{ marginTop: '0.5rem' }} onClick={() => navigate('/table-select')}>
-                <LogOut size={20} /> {lang === 'th' ? 'กลับสู่หน้าร้าน' : 'Exit to Storefront'}
              </button>
           </nav>
        </aside>

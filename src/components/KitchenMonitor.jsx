@@ -1,5 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChefHat, Clock, PlusCircle, CheckCircle, XCircle, Printer } from 'lucide-react';
+import { printKitchenOrder } from '../utils/printerRouting';
+
+// เปิด/ปิดการพิมพ์อัตโนมัติ เก็บแยกรายเครื่อง — ให้เปิดไว้เครื่องเดียวพอ
+// ถ้าเปิดหลายเครื่องพร้อมกัน ออเดอร์เดียวจะถูกพิมพ์ซ้ำหลายใบ
+const AUTO_PRINT_KEY = 'auto_print_kitchen';
+// เลขออเดอร์ที่พิมพ์ไปแล้ว กันพิมพ์ซ้ำตอนดึงข้อมูลรอบถัดไปหรือรีเฟรชหน้า
+const PRINTED_KEY = 'auto_printed_orders';
+const PRINTED_MAX = 200;
+
+const loadPrinted = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PRINTED_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch (e) {
+    return new Set();
+  }
+};
 
 const OrderTimer = ({ timestamp }) => {
   const [elapsed, setElapsed] = useState(0);
@@ -27,7 +44,57 @@ const OrderTimer = ({ timestamp }) => {
   );
 };
 
-const KitchenMonitor = ({ orders, onUpdateOrderStatus, onNewOrder }) => {
+const KitchenMonitor = ({ orders, onUpdateOrderStatus, onNewOrder, allMenu = [] }) => {
+  const [autoPrint, setAutoPrint] = useState(() => localStorage.getItem(AUTO_PRINT_KEY) === '1');
+  const [autoPrintStatus, setAutoPrintStatus] = useState(null); // { ok, msg }
+  const printedRef = useRef(loadPrinted());
+  const baselineDone = useRef(false);
+
+  const markPrinted = useCallback((list) => {
+    list.forEach(o => printedRef.current.add(String(o.orderNumber)));
+    const keep = Array.from(printedRef.current).slice(-PRINTED_MAX);
+    printedRef.current = new Set(keep);
+    localStorage.setItem(PRINTED_KEY, JSON.stringify(keep));
+  }, []);
+
+  const toggleAutoPrint = () => {
+    setAutoPrint(prev => {
+      const next = !prev;
+      localStorage.setItem(AUTO_PRINT_KEY, next ? '1' : '0');
+      if (!next) baselineDone.current = false;
+      return next;
+    });
+    setAutoPrintStatus(null);
+  };
+
+  useEffect(() => {
+    if (!autoPrint) return;
+
+    // ตอนเพิ่งเปิดหน้าจอ (หรือเพิ่งเปิดสวิตช์) ให้ถือว่าออเดอร์ที่ค้างอยู่พิมพ์ไปแล้ว
+    // กันพ่นใบย้อนหลังทีเดียวเป็นสิบใบ
+    if (!baselineDone.current) {
+      baselineDone.current = true;
+      markPrinted(orders);
+      return;
+    }
+
+    const fresh = orders.filter(o => !printedRef.current.has(String(o.orderNumber)));
+    if (fresh.length === 0) return;
+
+    // ทำเครื่องหมายก่อนพิมพ์ กันยิงซ้ำถ้าข้อมูลรอบใหม่เข้ามาระหว่างที่ยังพิมพ์ไม่เสร็จ
+    markPrinted(fresh);
+
+    (async () => {
+      for (const order of fresh) {
+        const result = await printKitchenOrder(order, allMenu);
+        setAutoPrintStatus(result.success
+          ? { ok: true, msg: `พิมพ์ออเดอร์ #${order.orderNumber} แล้ว (${result.printed} ใบ)` }
+          : { ok: false, msg: `ออเดอร์ #${order.orderNumber} พิมพ์ไม่สำเร็จ — ${result.error} (กดปุ่มพิมพ์ที่ใบออเดอร์เพื่อลองใหม่)` });
+        if (!result.success) console.error('Auto print failed:', result.error);
+      }
+    })();
+  }, [orders, autoPrint, allMenu, markPrinted]);
+
   const handleCompleteClick = (orderId, orderNumber) => {
     const numString = orderNumber ? orderNumber.toString().replace('#', '').replace(/^0+/, '') : '';
     
@@ -52,21 +119,11 @@ const KitchenMonitor = ({ orders, onUpdateOrderStatus, onNewOrder }) => {
   };
 
   const handlePrintClick = async (order) => {
-    const kitchenIP = localStorage.getItem('printer_kitchen_ip');
-    if (!kitchenIP) {
-      alert('ไม่ได้ตั้งค่า IP เครื่องปริ้นสำหรับห้องครัว กรุณาไปที่ตังค่าแอดมิน');
-      return;
-    }
-    try {
-      const response = await fetch(`http://${window.location.hostname}:3001/print`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ip: kitchenIP, printerType: 'kitchen', orderData: order })
-      });
-      const result = await response.json();
-      if (!result.success) alert('ปริ้นไม่สำเร็จ: ' + result.error);
-    } catch (e) {
-      alert('เชื่อมต่อ Print Server ไม่ได้ (กรุณาให้แน่ใจว่า node server.js รันอยู่)');
+    const result = await printKitchenOrder(order, allMenu);
+    if (result.success) {
+      markPrinted([order]);
+    } else {
+      alert('ปริ้นไม่สำเร็จ: ' + result.error);
     }
   };
 
@@ -144,11 +201,42 @@ const KitchenMonitor = ({ orders, onUpdateOrderStatus, onNewOrder }) => {
     <div className="kitchen-monitor">
       <div className="kitchen-header">
         <h2><ChefHat size={32} /> ระบบหลังบ้าน (Kitchen Monitor)</h2>
-        <button className="new-order-btn" onClick={onNewOrder}>
-          <PlusCircle size={20} />
-          สั่งอาหาร (New Order)
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            onClick={toggleAutoPrint}
+            title={autoPrint
+              ? 'ออเดอร์ใหม่จะถูกพิมพ์เข้าครัวอัตโนมัติจากเครื่องนี้'
+              : 'เปิดเพื่อให้ออเดอร์ใหม่พิมพ์เข้าครัวเองโดยไม่ต้องกด'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: autoPrint ? '#16a34a' : 'rgba(255,255,255,0.1)',
+              color: 'white',
+              border: `1px solid ${autoPrint ? '#16a34a' : 'rgba(255,255,255,0.2)'}`,
+              padding: '0.6rem 1.1rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            <Printer size={18} />
+            พิมพ์อัตโนมัติ: {autoPrint ? 'เปิด' : 'ปิด'}
+          </button>
+          <button className="new-order-btn" onClick={onNewOrder}>
+            <PlusCircle size={20} />
+            สั่งอาหาร (New Order)
+          </button>
+        </div>
       </div>
+
+      {autoPrint && autoPrintStatus && (
+        <div style={{
+          background: autoPrintStatus.ok ? 'rgba(22,163,74,0.15)' : 'rgba(220,38,38,0.15)',
+          border: `1px solid ${autoPrintStatus.ok ? 'rgba(22,163,74,0.5)' : 'rgba(220,38,38,0.5)'}`,
+          color: autoPrintStatus.ok ? '#4ade80' : '#fca5a5',
+          padding: '0.75rem 1rem', borderRadius: '10px', marginBottom: '1rem',
+          display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 600
+        }}>
+          {autoPrintStatus.ok ? <CheckCircle size={16} /> : <XCircle size={16} />}
+          <span>{autoPrintStatus.msg}</span>
+        </div>
+      )}
 
       {orders.length > 0 && (
         <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>

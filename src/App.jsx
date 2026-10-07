@@ -1,15 +1,19 @@
 import React, { useState, lazy, Suspense } from 'react';
-import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ShoppingCart, ClipboardList, Store, Globe, ShoppingBag, RefreshCw } from 'lucide-react';
-import FoodCard from './components/FoodCard';
+import { Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
 import OrderWizardModal from './components/OrderWizardModal';
-import CartModal from './components/CartModal';
-import CheckoutModal from './components/CheckoutModal';
-import TableSelection from './components/TableSelection';
+import PosSalesScreen from './components/PosSalesScreen';
 import PaymentApprovalListener from './components/PaymentApprovalListener';
+import ChunkErrorBoundary from './components/ChunkErrorBoundary';
 import TableOrderView from './components/TableOrderView';
 import LoginScreen from './components/LoginScreen';
-import ShiftModal from './components/ShiftModal';
+import BranchPicker from './components/BranchPicker';
+import BranchLanding from './components/BranchLanding';
+import { isAllBranches } from './utils/branches';
+// โหลดแบบ lazy: 2 โมดอลนี้ลากไลบรารีหนัก (html2canvas, qrcode) เปิดตอนกดเท่านั้น → bundle หน้าแรกเล็กลง
+const SalesSummaryModal = lazy(() => import('./components/SalesSummaryModal'));
+const TaxInvoicePage = lazy(() => import('./components/TaxInvoicePage'));
+const KioskPaymentAlerts = lazy(() => import('./components/KioskPaymentAlerts'));
+const CheckoutModal = lazy(() => import('./components/CheckoutModal'));
 // โหลดแบบ lazy: หน้าหลังบ้าน/ครัว/เหล้า/บิลค้าง ไม่ต้องโหลดตอนเปิดหน้าร้าน → เริ่มแอปไวขึ้น
 const KitchenMonitor = lazy(() => import('./components/KitchenMonitor'));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
@@ -17,19 +21,99 @@ const Dashboard = lazy(() => import('./components/admin/Dashboard'));
 const ManageMenu = lazy(() => import('./components/admin/ManageMenu'));
 const ManagePromotions = lazy(() => import('./components/admin/ManagePromotions'));
 const ManageCategories = lazy(() => import('./components/admin/ManageCategories'));
+const ManageTables = lazy(() => import('./components/admin/ManageTables'));
 const ManagePrinters = lazy(() => import('./components/admin/ManagePrinters'));
 const ManageUsers = lazy(() => import('./components/admin/ManageUsers'));
+const ManageBranches = lazy(() => import('./components/admin/ManageBranches'));
+const ManageBranchMenu = lazy(() => import('./components/admin/ManageBranchMenu'));
 const ManageSettings = lazy(() => import('./components/admin/ManageSettings'));
 const ManageStock = lazy(() => import('./components/admin/ManageStock'));
 const ManageBOM = lazy(() => import('./components/admin/ManageBOM'));
 const Reports = lazy(() => import('./components/admin/Reports'));
 const OutstandingBills = lazy(() => import('./components/OutstandingBills'));
 const LiquorStorage = lazy(() => import('./components/LiquorStorage'));
-import { resolvePopupSource, flattenPopupConfig, getPriceOptions } from './utils/popupConfig';
+const WasteRecord = lazy(() => import('./components/WasteRecord'));
+const CustomerKiosk = lazy(() => import('./components/CustomerKiosk'));
+import { resolvePopupSource, flattenPopupConfig, getPriceOptions, categoryDining, resolveNoteConfig } from './utils/popupConfig';
+import { priceForSaleType, readTablesConfig } from './utils/salePricing';
+import { categoryVisibleFor } from './utils/categoryVisibility';
 import './index.css';
+import { sendPrintJob, setReceiptHeader } from './utils/printServer';
+import { print80mm } from './utils/print80mm';
+import { getPrinterByType, getPrinters, mergeServerPrinters, printKitchenOrder, printPreBill } from './utils/printerRouting';
+import { API_URL, setAuthToken, AUTH_REQUIRED_EVENT } from './utils/api';
 
 const MENU_ITEMS = [];
 
+// รหัสสาขานำหน้าเลขบิล — ตัดช่องว่าง/อักขระพิเศษ เป็นตัวพิมพ์ใหญ่ (เช่น "xum" → "XUM")
+// กันเลขบิลชนกันข้ามสาขา (แต่ละสาขานับเลขของตัวเองแยกกัน)
+const branchPrefix = (b) => {
+  const p = String(b || '').trim().toUpperCase().replace(/\s+/g, '').replace(/[^0-9A-Zก-๙]/g, '');
+  return p || 'POS';
+};
+
+// หน้าพนักงานต้องล็อกอินเสมอ — ยกเว้นระบบที่ยังไม่มีพนักงานคนไหนตั้งรหัสเลย (ติดตั้งใหม่)
+// ซึ่งหน้าล็อกอินจะมีปุ่มเข้าแบบตั้งค่าครั้งแรกเป็น DEFAULT_ADMIN ให้ไปสร้างพนักงานก่อน
+// (สวิตช์ requireLogin ในตั้งค่าร้านยังมีผลที่ฝั่ง API: ให้เซิร์ฟเวอร์ปฏิเสธคำขอที่ไม่ได้ล็อกอิน)
+const hasPin = (u) => u && (u.hasPin === true || String(u.pin ?? '').trim() !== '');
+const DEFAULT_ADMIN = { id: 'admin', username: 'admin', branch: 'admin', canCheckout: true, isAdmin: true };
+
+
+// สร้างข้อมูลใบครัวจากแถวของชีต TableOrders
+// ส่งแบบ flattened: ชื่อมี (xN) ต่อท้ายให้เครื่องอ่านจำนวนออก และยัดตัวเลือก/หมายเหตุ
+// ลง subItems เพื่อให้ครัวเห็นครบ (เช่น "📝 ไม่ใส่ผัก")
+// ประเภทของโต๊ะตามโซนในผังโต๊ะ → หัวใบครัว (ทานที่ร้าน / ห่อกลับบ้าน / Delivery)
+const ZONE_DINING = { Takehome: 'ห่อกลับบ้าน', Delivery: 'Delivery' };
+const diningForTable = (tables, tableNo) => {
+  const t = (Array.isArray(tables) ? tables : []).find(x => String(x.name) === String(tableNo));
+  return (t && ZONE_DINING[t.zone]) || '';
+};
+
+const buildKitchenOrder = (rows, tableNo, id, timestamp, dining = '') => ({
+  id,
+  dining,
+  orderNumber: `โต๊ะ ${tableNo}`,
+  customerDetails: { name: `โต๊ะ ${tableNo}`, address: `โต๊ะ ${tableNo}` },
+  items: rows.map(row => {
+    const qty = Number(row.Quantity) || 1;
+    return {
+      isFlattened: true,
+      name: qty > 1 ? `${row.ItemName} (x${qty})` : row.ItemName,
+      subItems: row.Options ? String(row.Options).split(', ').filter(Boolean) : []
+    };
+  }),
+  total: rows.reduce((sum, r) => sum + (Number(r.ItemPrice) || 0) * (Number(r.Quantity) || 1), 0),
+  status: 'pending',
+  timestamp
+});
+
+// ส่งบิลขึ้นระบบ — ถ้าไม่สำเร็จจะโยน Error ที่ message เป็นสาเหตุภาษาคนอ่านรู้เรื่อง
+// (ใช้ทั้งตอนชำระเงินและตอนส่งบิลค้างซ้ำ เพื่อให้แถบแจ้งเตือนบอกได้ว่าพังที่เน็ตหรือที่ฐานข้อมูล)
+async function postOrderPayload(payload) {
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+  } catch {
+    throw new Error('ส่งไม่ถึงเซิร์ฟเวอร์ — เน็ตหลุด หรือ API ไม่ทำงาน');
+  }
+  const json = await res.json().catch(() => null);
+  if (json && json.success === true) return json;
+  if (!json) throw new Error(`เซิร์ฟเวอร์ตอบกลับผิดรูปแบบ (HTTP ${res.status})`);
+  const raw = String(json.error || 'เซิร์ฟเวอร์ไม่ตอบ success');
+  if (/ต่อ SQL Server|Failed to connect|ETIMEOUT|ESOCKET|ECONNREFUSED/i.test(raw)) {
+    throw new Error('เซิร์ฟเวอร์ต่อฐานข้อมูล SQL Server ไม่ได้');
+  }
+  // ข้อความจากเซิร์ฟเวอร์อาจยาวหลายบรรทัด (มีวิธีแก้ต่อท้าย) — เอาแค่บรรทัดแรกพอ
+  const firstLine = raw.split('\n')[0];
+  throw new Error(firstLine.length > 120 ? firstLine.slice(0, 120) + '…' : firstLine);
+}
+
+// ส่งบิลค้างซ้ำเองทุก ๆ เท่านี้ — กรณีเน็ตเครื่องปกติแต่ API/ฐานข้อมูลล่ม จะไม่มี event 'online' มาปลุก
+const PENDING_RETRY_MS = 90 * 1000;
 
 function App() {
   const navigate = useNavigate();
@@ -40,133 +124,185 @@ function App() {
   const [customerType, setCustomerType] = useState('');
   // ชื่อลูกค้า (ไม่บังคับกรอก)
   const [customerName, setCustomerName] = useState('');
-  // ทุกครั้งที่เปิด/รีเฟรชแอป ให้เริ่มที่หน้าเลือกโต๊ะเสมอ (ไม่จำเลขโต๊ะเดิม)
+  // เริ่มต้นด้วยค่าว่างเพื่อให้ระบบบังคับให้ผู้ใช้เลือกโต๊ะก่อนสั่งอาหาร
   const [tableNumber, setTableNumber] = useState('');
 
-  // Users & Auth — seed from cache so login shows immediately without waiting for GAS
+  // Users & Auth — seed from cache so login shows immediately without waiting for the API
   const [users, setUsers] = useState(() => {
     try { return JSON.parse(localStorage.getItem('cached_users') || '[]'); } catch { return []; }
   });
+  // ให้ล็อกอินใหม่ทุกครั้งที่เปิดโปรแกรม — ไม่กู้สถานะล็อกอินเดิมจาก localStorage
+  // (ยังไม่เปิดบังคับล็อกอิน → ข้ามหน้าล็อกอิน เข้าเป็นแอดมินทันที)
   const [currentUser, setCurrentUser] = useState(null);
+  // ล้าง key เก่าที่เคยจำล็อกอินไว้ (เผื่อเครื่องที่อัปเดตมาจากเวอร์ชันก่อน)
+  React.useEffect(() => {
+    try { localStorage.removeItem('current_user'); } catch {}
+  }, []);
 
   // สิทธิ์แอดมิน: รองรับ flag isAdmin จากชีต และเผื่อ user ชื่อ admin
   const isAdmin = !!(currentUser && (currentUser.isAdmin === true || currentUser.isAdmin === 'TRUE' || String(currentUser.username || '').toLowerCase() === 'admin'));
   // สิทธิ์แคชเชียร์: เข้าหลังบ้านได้บางหน้า (ไม่เห็นราคาต้นทุน)
   const isCashier = !isAdmin && !!(currentUser && (currentUser.isCashier === true || currentUser.isCashier === 'TRUE'));
-
-  // Shift state
-  const [currentShift, setCurrentShift] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('current_shift') || 'null'); } catch { return null; }
+  // สาขาของเครื่องนี้ — เลือกที่หน้าแรก (เลือกสาขา → หน้าพนักงาน/หน้าลูกค้า) เครื่องจำไว้
+  const [deviceBranch, setDeviceBranchState] = useState(() => {
+    try { return localStorage.getItem('device_branch') || ''; } catch { return ''; }
   });
-  const [shiftSales, setShiftSales] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('shift_sales') || 'null') || { totalSales: 0, totalCash: 0, totalCard: 0, totalTransfer: 0, totalOrders: 0 }; } catch { return { totalSales: 0, totalCash: 0, totalCard: 0, totalTransfer: 0, totalOrders: 0 }; }
-  });
-  const [shiftModalMode, setShiftModalMode] = useState(null); // null | 'open' | 'close'
-
-  const handleOpenShift = async (openCash) => {
-    try {
-      const res  = await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'openShift', staff: currentUser?.username || '', openCash }) });
-    } catch (e) {}
-    const shiftId = 'SHIFT-' + Date.now();
-    const shift = { id: shiftId, openTime: new Date().toISOString(), openStaff: currentUser?.username || '', openCash };
-    const freshSales = { totalSales: 0, totalCash: 0, totalCard: 0, totalTransfer: 0, totalOrders: 0 };
-    setCurrentShift(shift);
-    setShiftSales(freshSales);
-    localStorage.setItem('current_shift', JSON.stringify(shift));
-    localStorage.setItem('shift_sales', JSON.stringify(freshSales));
-    setShiftModalMode(null);
+  const setDeviceBranch = (id) => {
+    setDeviceBranchState(id || '');
+    try { if (id) localStorage.setItem('device_branch', id); else localStorage.removeItem('device_branch'); } catch {}
   };
+  // สาขาของผู้ใช้ปัจจุบัน = คอลัม A ของชีต Users (branch) — ใช้บันทึกลง Orders.RecordedBy และกรองรายงาน
+  // ยังไม่บังคับล็อกอิน (เข้าเป็นแอดมินอัตโนมัติ) → ใช้สาขาที่เลือกไว้ที่หน้าแรกของเครื่องนี้
+  const userBranch = String(currentUser?.branch || currentUser?.id || currentUser?.username || '').trim();
+  const branch = currentUser === DEFAULT_ADMIN && deviceBranch ? deviceBranch : userBranch;
+  const isLandingPath = location.pathname === '/';
+  // สาขาที่หน้าจอนี้ทำงานอยู่ — หน้าลูกค้าสั่งเอง (QR โต๊ะ) ใช้ ?b= จากลิงก์ ส่วนหน้าร้านใช้สาขาของผู้ใช้ที่ล็อกอิน
+  const isKioskPath = location.pathname.includes('/kiosk') || location.pathname.includes('/self-order');
+  const kioskBranchParam = isKioskPath ? (new URLSearchParams(location.search).get('b') || '').trim() : '';
+  const activeBranch = kioskBranchParam || branch;
 
-  // โต๊ะที่ยังไม่ชำระ (ใช้ตอนปิดกะ → บิลค้าง)
-  const getPendingTables = () => {
-    const pending = (tableOrders || []).filter(o => o.Status !== 'paid');
-    const map = {};
-    pending.forEach(o => {
-      const t = String(o.TableNumber);
-      if (!map[t]) map[t] = { tableNo: t, count: 0, total: 0, items: [] };
-      map[t].count += Number(o.Quantity) || 1;
-      map[t].total += (Number(o.ItemPrice) || 0) * (Number(o.Quantity) || 1);
-      map[t].items.push(o);
-    });
-    return Object.values(map).sort((a, b) => String(a.tableNo).localeCompare(String(b.tableNo), 'th', { numeric: true }));
-  };
+  // แจ้งเตือนเมื่อบันทึกบิล/การชำระเงินขึ้น Google Sheet ไม่สำเร็จ (เน็ตหลุด/แบ็กเอนด์ error)
+  // — กันเคส payment หายเงียบ ๆ แบบช่วงบิล #233–#296 ที่ผ่านมา
+  // ค่า: null | { type: 'error' | 'success', msg: string }
+  const [saveAlert, setSaveAlert] = useState(null);
 
-  const handleCloseShift = async (closeCash, note, billInfo = {}) => {
-    if (!currentShift) return;
-
-    // สร้างบิลค้างจากโต๊ะที่ยังไม่ชำระ
-    const pendingTables = getPendingTables();
-    const createdAt = getThaiTimeISO();
-    const bills = pendingTables.map(t => {
-      const info = billInfo[t.tableNo] || {};
-      return {
-        id: `OB-${currentShift.id}-${t.tableNo}`,
-        shiftId: currentShift.id,
-        tableNo: t.tableNo,
-        customerName: (info.name || '').trim(),
-        phone: (info.phone || '').trim(),
-        total: t.total,
-        items: t.items,
-        createdAt,
-        status: 'unpaid'
-      };
-    });
-
-    if (bills.length > 0) {
-      // เก็บลง localStorage ทันที (ให้หน้าบิลค้างแสดงได้เลย)
-      try {
-        const prev = JSON.parse(localStorage.getItem('outstanding_bills') || '[]');
-        localStorage.setItem('outstanding_bills', JSON.stringify([...prev, ...bills]));
-      } catch (e) {}
-      // บันทึกขึ้นเซิร์ฟเวอร์ + ล้างโต๊ะทั้งหมด
-      try {
-        await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'saveOutstandingBills', bills }) });
-        await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'clearAllTableOrders' }) });
-      } catch (e) {}
-      // เคลียร์โต๊ะในเครื่อง + ลบจำนวนลูกค้า
-      setTableOrders(prev => prev.filter(o => o.Status === 'paid'));
-      pendingTables.forEach(t => localStorage.removeItem('customer_count_' + t.tableNo));
-    }
-
-    try {
-      await fetch(GAS_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'closeShift', shiftId: currentShift.id, staff: currentUser?.username || '', closeCash, note, ...shiftSales }) });
-    } catch (e) {}
-    setCurrentShift(null);
-    setShiftSales({ totalSales: 0, totalCash: 0, totalCard: 0, totalTransfer: 0, totalOrders: 0 });
-    localStorage.removeItem('current_shift');
-    localStorage.removeItem('shift_sales');
-    setShiftModalMode(null);
-  };
+  // เวลาที่ล็อกอินเข้าระบบ — ใช้เช็ก auto-logout เมื่อครบ 8 ชั่วโมง
+  const loginAtRef = React.useRef(null);
 
   const handleLogin = (user) => {
     setCurrentUser(user);
-    // เข้าสู่ระบบใหม่ → กลับไปหน้าเลือกโต๊ะเสมอ
+    loginAtRef.current = Date.now();
+    // ไม่บันทึกลง localStorage — ปิด/รีเฟรชโปรแกรมแล้วต้องล็อกอินใหม่เสมอ
+    // เข้าสู่ระบบใหม่ → ไปที่หน้าสั่งอาหารทันที
     setTableNumber('');
-    navigate('/table-select', { replace: true });
+    navigate('/index', { replace: true });
   };
 
   const handleLogout = () => {
+    setAuthToken('');
     setCurrentUser(null);
+    loginAtRef.current = null;
+    try { localStorage.removeItem('current_user'); } catch {}
     setTableNumber('');
-    navigate('/table-select', { replace: true });
+    navigate('/', { replace: true });
   };
 
-  // เปิด/รีเฟรชแอป → บังคับกลับหน้าเลือกโต๊ะ (รันครั้งเดียวตอน mount)
+  // อยู่ในระบบเกิน 8 ชั่วโมง → ล็อกเอาต์อัตโนมัติ
+  // เช็กทุก 1 นาที + เช็กซ้ำตอนแท็บกลับมาโฟกัส (กัน browser หน่วง timer ตอนพับจอ)
   React.useEffect(() => {
-    setTableNumber('');
-    navigate('/table-select', { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!currentUser) return;
+    const SESSION_MAX_MS = 8 * 60 * 60 * 1000;
+    const check = () => {
+      if (loginAtRef.current && Date.now() - loginAtRef.current >= SESSION_MAX_MS) {
+        handleLogout();
+        setSaveAlert({ type: 'error', msg: '⏰ อยู่ในระบบครบ 8 ชั่วโมงแล้ว ระบบล็อกเอาต์อัตโนมัติ — กรุณาล็อกอินใหม่' });
+      }
+    };
+    const id = setInterval(check, 60 * 1000);
+    document.addEventListener('visibilitychange', check);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', check); };
+  }, [currentUser]);
+
+
 
   React.useEffect(() => {
     if (tableNumber) localStorage.setItem('table_number', tableNumber);
     else localStorage.removeItem('table_number');
   }, [tableNumber]);
 
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+  // ── Retry บิลที่ค้างใน localStorage (pending_orders) ──
+  // เรียกตอนเปิดแอปและเมื่อเน็ตกลับมา — ส่งซ้ำเฉพาะที่ backend ยังไม่ตอบ success
+  const flushingRef = React.useRef(false);
+  const flushPendingOrders = React.useCallback(async () => {
+    if (flushingRef.current) return; // กันรันซ้อน (mount + online event)
+    let pending;
+    try { pending = JSON.parse(localStorage.getItem('pending_orders') || '[]'); } catch { pending = []; }
+    if (!Array.isArray(pending) || pending.length === 0) return;
+
+    flushingRef.current = true;
+    const stillPending = [];
+    let lastReason = '';
+    for (const entry of pending) {
+      try {
+        const json = await postOrderPayload(entry.payload);
+        // บิลที่ตอนชำระบันทึกไม่ได้ ลูกค้าได้ใบเสร็จธรรมดาไปก่อน — ได้เลขแล้วพิมพ์ใบกำกับภาษีอย่างย่อตามให้
+        const receiptPrinter = entry.receiptOrder ? getPrinterByType('receipt') : null;
+        if (receiptPrinter && json && json.orderNumber && !json.duplicate) {
+          sendPrintJob({ ip: receiptPrinter.ip, printerType: 'receipt', orderData: { ...entry.receiptOrder, id: json.orderNumber, orderNumber: json.orderNumber, paid: true, noDrawer: true } })
+            .catch(err => console.error('Late receipt print failed:', err));
+        }
+      } catch (err) {
+        lastReason = err.message;
+        stillPending.push({ ...entry, error: err.message }); // ยังส่งไม่ได้ เก็บไว้รอบหน้า
+      }
+    }
+    // ระหว่างส่งอาจมีบิลใหม่ที่พังเพิ่มเข้ามา — อ่านซ้ำแล้วเก็บตัวที่ไม่ได้อยู่ในรอบนี้ไว้ด้วย
+    let added = [];
+    try {
+      const latest = JSON.parse(localStorage.getItem('pending_orders') || '[]');
+      if (Array.isArray(latest)) added = latest.slice(pending.length);
+    } catch {}
+    localStorage.setItem('pending_orders', JSON.stringify([...stillPending, ...added]));
+    flushingRef.current = false;
+
+    const sent = pending.length - stillPending.length;
+    if (sent > 0) {
+      if (stillPending.length === 0) {
+        setSaveAlert({ type: 'success', msg: `✅ ส่งบิลที่ค้าง ${sent} รายการขึ้นระบบสำเร็จแล้ว` });
+        setTimeout(() => setSaveAlert(cur => (cur && cur.type === 'success' ? null : cur)), 5000);
+      } else {
+        setSaveAlert({ type: 'error', msg: `⚠️ ส่งบิลค้างได้ ${sent} รายการ เหลืออีก ${stillPending.length} รายการที่ยังส่งไม่ได้ — สาเหตุ: ${lastReason}` });
+      }
+    }
+  }, []);
+
+  React.useEffect(() => {
+    flushPendingOrders();
+    window.addEventListener('online', flushPendingOrders);
+    const timer = setInterval(flushPendingOrders, PENDING_RETRY_MS);
+    return () => {
+      window.removeEventListener('online', flushPendingOrders);
+      clearInterval(timer);
+    };
+  }, [flushPendingOrders]);
 
   const [orders, setOrders] = useState([]);
-  const [maxOrderNum, setMaxOrderNum] = useState(0);
+  // เลขบิลล่าสุดแยกตามสาขา (RecordedBy) — { [สาขา]: เลขสูงสุด } เพื่อให้แต่ละสาขานับต่อของตัวเอง
+  const [branchMaxMap, setBranchMaxMap] = useState({});
+  // ข้อมูลสาขาจากหลังบ้าน (ตาราง Branches) — อ่านจาก cache ก่อน เพื่อให้เลขบิลใช้ตัวนำหน้าที่ถูกตั้งแต่เปิดแอป
+  const [branches, setBranches] = useState(() => {
+    try { const d = JSON.parse(localStorage.getItem('gas_all_data') || '{}'); return Array.isArray(d.branches) ? d.branches : []; } catch { return []; }
+  });
+  // ตัวนำหน้าเลขบิลของสาขานี้ — ตั้งไว้ในหน้าตั้งค่าสาขา ถ้าไม่ได้ตั้งใช้รหัสสาขาแบบเดิม
+  // (เลขที่นับต่อยังแยกตาม RecordedBy เหมือนเดิม เปลี่ยนตัวนำหน้าแล้วเลขไม่เริ่มใหม่)
+  const billPrefix = React.useMemo(() => {
+    const key = branch.toLowerCase();
+    const info = branches.find(b => String(b.id || '').trim().toLowerCase() === key);
+    return branchPrefix(info && info.billPrefix ? info.billPrefix : branch);
+  }, [branches, branch]);
+  // รหัสสาขาที่ส่งไปกับคำขอ — ต้องตรงกับรายการในหน้าตั้งค่าสาขา
+  // ไม่ตรง/ยังโหลดรายการสาขาไม่ได้ → '' ให้เซิร์ฟเวอร์ลงสาขาหลัก และอ่านได้ทุกโต๊ะเหมือนเดิม
+  const branchKey = React.useMemo(() => {
+    const key = activeBranch.toLowerCase();
+    const info = branches.find(b => String(b.id || '').trim().toLowerCase() === key);
+    return info ? String(info.id).trim() : '';
+  }, [branches, activeBranch]);
+  // สาขาหลักจากเซิร์ฟเวอร์ (สาขาแรกที่เปิดใช้งาน) + ผังโต๊ะของทุกสาขา
+  const [defaultBranch, setDefaultBranch] = useState(() => {
+    try { return String(JSON.parse(localStorage.getItem('gas_all_data') || '{}').defaultBranch || ''); } catch { return ''; }
+  });
+  const [branchTables, setBranchTables] = useState(null);
+  // ปริ้นเตอร์จากเซิร์ฟเวอร์ (ทุกสาขา) — ใช้เฉพาะของสาขานี้ ดูเอฟเฟกต์ด้านล่าง
+  const [serverPrinters, setServerPrinters] = useState(null);
+  // สาขาที่ใช้เลือกผังโต๊ะและลิงก์ QR — ผู้ใช้ไม่ได้อยู่สาขาที่มีในรายการ ให้ถือเป็นสาขาหลัก
+  const tablesBranch = branchKey || defaultBranch;
+  const kioskPathRef = React.useRef(isKioskPath);
+  kioskPathRef.current = isKioskPath;
+  // ผังโต๊ะของสาขาสำหรับหน้าลูกค้า (เข้าจากหน้าแรกโดยไม่มีเลขโต๊ะ → ลูกค้าเลือกโต๊ะเอง)
+  const kioskTables = (branchTables && Array.isArray(branchTables[tablesBranch]) && branchTables[tablesBranch]) || readTablesConfig();
+  // ตัวดึงข้อมูลถูกเรียกจาก setInterval ที่ผูกไว้ตั้งแต่เปิดแอป — ต้องอ่านสาขาปัจจุบันผ่าน ref
+  const branchKeyRef = React.useRef(branchKey);
+  branchKeyRef.current = branchKey;
   const [liveMenu, setLiveMenu] = useState([...MENU_ITEMS]);
   const [categories, setCategories] = useState([
     { slug: 'food', name: 'อาหาร', nameEn: 'Food', icon: '🍲' },
@@ -187,6 +323,99 @@ function App() {
     window.addEventListener('pos_settings_changed', handler);
     return () => window.removeEventListener('pos_settings_changed', handler);
   }, []);
+
+  // เซิร์ฟเวอร์ตอบว่า token หมดอายุ/ไม่มี (เปิดบังคับล็อกอินอยู่) → กลับหน้าล็อกอิน
+  React.useEffect(() => {
+    const onAuthRequired = () => {
+      if (kioskPathRef.current) return;
+      setAuthToken('');
+      setCurrentUser(null);
+      setSaveAlert({ type: 'error', msg: '🔒 หมดเวลาใช้งาน หรือยังไม่ได้ล็อกอิน — กรุณาล็อกอินใหม่' });
+    };
+    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+  }, []);
+
+  // พนักงานทุกสาขา + มีสาขาที่เปิดใช้งานอยู่สาขาเดียว → เลือกให้เลย ไม่ต้องกด
+  React.useEffect(() => {
+    if (!currentUser || !isAllBranches(currentUser.branch)) return;
+    const active = branches.filter(b => b.isActive !== false);
+    // หรือเลือกสาขาของเครื่องนี้ไว้แล้วที่หน้าแรก → ใช้สาขานั้นเลย
+    const pick = active.length === 1 ? active[0] : active.find(b => String(b.id) === String(deviceBranch));
+    if (pick) setCurrentUser(u => ({ ...u, branch: String(pick.id), allBranches: true }));
+  }, [currentUser, branches, deviceBranch]);
+
+  // โหลดรายการสาขาจากเซิร์ฟเวอร์ครั้งแรกเสร็จหรือยัง (หน้าแรกรอก่อนแสดง) — เซิร์ฟเวอร์ไม่ตอบ 8 วิ ก็ไปต่อ
+  const [staticLoaded, setStaticLoaded] = useState(false);
+  React.useEffect(() => {
+    const t = setTimeout(() => setStaticLoaded(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // เปลี่ยนสาขา (ล็อกอินคนละสาขา / เพิ่งโหลดรายการสาขาเสร็จ) → ดึงโต๊ะของสาขาใหม่ทันที ไม่รอรอบ 20 วิ
+  const branchFetchReadyRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!branchFetchReadyRef.current) { branchFetchReadyRef.current = true; return; }
+    lastRawRef.current = null;
+    fetchOrdersFromSheet();
+    fetchStaticFromSheet(); // เมนู/ราคาของสาขาใหม่
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchKey]);
+
+  // ปริ้นเตอร์ของสาขานี้เท่านั้น → ที่เดิม (printers_config) ที่หน้าขาย/หน้าครัวใช้พิมพ์
+  // แถวที่ไม่มีสาขา (API รุ่นเก่า) ถือว่าเป็นของทุกสาขาเหมือนเดิม
+  React.useEffect(() => {
+    if (!serverPrinters || !tablesBranch) return;
+    const mine = serverPrinters.filter(p => !p.branchId || String(p.branchId) === String(tablesBranch));
+    // รวมกับค่าที่ตั้งไว้ในเครื่องก่อน ไม่งั้นค่าที่เซิร์ฟเวอร์ไม่มีคอลัมน์ให้ (เช่น แยกใบ/รวมใบ) จะถูกล้างทิ้ง
+    const json = JSON.stringify(mergeServerPrinters(mine));
+    try {
+      if (localStorage.getItem('printers_config') !== json) {
+        localStorage.setItem('printers_config', json);
+        window.dispatchEvent(new Event('printers_changed'));
+      }
+    } catch {}
+  }, [serverPrinters, tablesBranch]);
+
+  // หัวใบเสร็จของสาขานี้ — แนบไปกับทุกงานพิมพ์
+  React.useEffect(() => {
+    const b = branches.find(x => String(x.id) === String(tablesBranch));
+    setReceiptHeader(b ? {
+      name: b.name || b.id, address: b.address || '', phone: b.phone || '',
+      taxId: b.taxId || '', posId: b.posId || '', footer: b.receiptFooter || '',
+      // อัตรา VAT สำหรับแยกยอดในใบกำกับภาษีอย่างย่อ — ใช้ค่าเดียวกับใบกำกับเต็มรูป (ไม่ได้ตั้ง = 7)
+      vatRate: Number(posSettings?.vat?.rate) > 0 ? Number(posSettings.vat.rate) : 7
+    } : null);
+  }, [branches, tablesBranch, posSettings]);
+
+  // ผังโต๊ะของสาขานี้จากเซิร์ฟเวอร์ → เขียนลงที่เดิม (pos_tables_config) ที่หน้าขายอ่านอยู่แล้ว
+  // สาขาที่ยังไม่เคยบันทึกผังขึ้นระบบ → ใช้ผังเดิมในเครื่องไปก่อน
+  React.useEffect(() => {
+    if (!branchTables || !tablesBranch) return;
+    const list = branchTables[tablesBranch];
+    if (!Array.isArray(list) || list.length === 0) return;
+    const json = JSON.stringify(list);
+    try {
+      if (localStorage.getItem('pos_tables_config') !== json) localStorage.setItem('pos_tables_config', json);
+    } catch {}
+  }, [branchTables, tablesBranch]);
+
+  // settings ที่ใช้จริงตอนเช็คบิล = ค่ากลาง + ทับด้วย QR เฉพาะสาขาที่ล็อกอินอยู่ (ถ้ามีตั้งไว้)
+  // เก็บใน posSettings.branchQR[ชื่อสาขา] — ไม่มีของสาขานั้น จะ fallback ใช้ QR กลาง
+  const checkoutSettings = React.useMemo(() => {
+    const map = posSettings?.branchQR;
+    const bq = map && typeof map === 'object' ? map[activeBranch] : null;
+    if (!bq) return posSettings;
+    const override = {};
+    ['qrType', 'kshopRawPayload', 'promptPayId', 'staticQrUrl'].forEach(k => {
+      if (bq[k] !== undefined && bq[k] !== '') override[k] = bq[k];
+    });
+    // ชื่อร้าน/บัญชีของสาขานี้ — ถ้าสาขาไม่ได้กรอกชื่อร้าน ให้โชว์ชื่อสาขาแทน
+    // (กันไม่ให้ fallback ไปโชว์ชื่อร้านกลางที่เป็นของอีกสาขา)
+    override.qrShopName = bq.qrShopName || activeBranch;
+    if (bq.qrAccountName) override.qrAccountName = bq.qrAccountName;
+    return { ...posSettings, ...override };
+  }, [posSettings, activeBranch]);
 
   // POS Discounts
   const [posDiscounts, setPosDiscounts] = useState(() => {
@@ -209,10 +438,21 @@ function App() {
   const [checkoutItems, setCheckoutItems] = useState([]);
   const [checkoutTotal, setCheckoutTotal] = useState(0);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [checkoutDiscount, setCheckoutDiscount] = useState(null);
+  const [showSalesSummaryModal, setShowSalesSummaryModal] = useState(false);
+  const [showTaxInvoicePage, setShowTaxInvoicePage] = useState(false);
+  const [salesSummaryMode, setSalesSummaryMode] = useState('daily'); // 'daily' | 'range'
 
   // เก็บ JSON ของแต่ละส่วนที่ apply ไปแล้ว → อัปเดต state เฉพาะส่วนที่เปลี่ยนจริง (กัน re-render ทั้งแอปทุก 10 วิ)
   const appliedRef = React.useRef({});
   const lastRawRef = React.useRef('');
+  const lastStaticRef = React.useRef('');
+  // กันยิงซ้อน: เซิร์ฟเวอร์ตอบช้า แต่ poll เป็นรอบ — ถ้ารอบก่อนยังไม่เสร็จให้ข้ามรอบนี้ไป
+  const inFlightRef = React.useRef(false);
+  const staticInFlightRef = React.useRef(false);
+  // ถ้า Apps Script ที่ deploy อยู่ยังเป็นเวอร์ชันเก่า (ไม่รู้จัก getLive/getStatic)
+  // ให้ถอยกลับไปใช้ getAllData แบบเดิม เพื่อไม่ให้ร้านใช้งานไม่ได้ระหว่างรอ deploy
+  const legacyGasRef = React.useRef(false);
   const changed = (key, value) => {
     const json = JSON.stringify(value);
     if (appliedRef.current[key] === json) return false;
@@ -254,14 +494,20 @@ function App() {
       });
       const sortedOrders = Object.values(groupedOrders).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       setOrders(sortedOrders);
-      let currentMax = 0;
+      // หาเลขบิลสูงสุดแยกตามสาขา (RecordedBy) — บิลเก่าที่ไม่มี RecordedBy รวมเป็นสาขาว่าง
+      const branchMaxes = {};
       data.orders.forEach(row => {
-        if (row.OrderNumber) {
-          const val = parseInt(row.OrderNumber.replace(/\D/g, ''), 10);
-          if (!isNaN(val) && val > currentMax) currentMax = val;
-        }
+        if (!row.OrderNumber) return;
+        const by = String(row.RecordedBy || '').trim();
+        // เลขลำดับท้ายเลขบิลเท่านั้น (XXX-#031 → 31) — ตัวนำหน้าที่มีตัวเลขไม่ทำให้เลขกระโดด
+        const val = parseInt((/#(\d+)\s*$/.exec(String(row.OrderNumber)) || [])[1], 10);
+        if (!isNaN(val)) branchMaxes[by] = Math.max(branchMaxes[by] || 0, val);
       });
-      setMaxOrderNum(prev => Math.max(prev, currentMax));
+      setBranchMaxMap(prev => {
+        const merged = { ...prev };
+        Object.keys(branchMaxes).forEach(k => { merged[k] = Math.max(merged[k] || 0, branchMaxes[k]); });
+        return merged;
+      });
     }
     if (data.menu && Array.isArray(data.menu) && changed('menu', data.menu)) {
       // flatten per-item popupConfig JSON onto each menu item for the wizard
@@ -273,6 +519,14 @@ function App() {
       // โต๊ะเป็นข้อมูลที่เปลี่ยนบ่อยและต้องตรงเสมอ → อัปเดตทุกครั้งที่ payload เปลี่ยน
       setTableOrders(data.tableOrders);
     }
+    if (Array.isArray(data.branches)) setStaticLoaded(true);
+    if (data.branches && Array.isArray(data.branches) && changed('branches', data.branches)) {
+      setBranches(data.branches);
+    }
+    if (typeof data.defaultBranch === 'string') setDefaultBranch(data.defaultBranch);
+    if (data.branchTables && typeof data.branchTables === 'object' && changed('branchTables', data.branchTables)) {
+      setBranchTables(data.branchTables);
+    }
     if (data.users && Array.isArray(data.users) && changed('users', data.users)) {
       localStorage.setItem('cached_users', JSON.stringify(data.users));
       setUsers(data.users);
@@ -282,8 +536,7 @@ function App() {
       setPosSettings(data.settings);
     }
     if (data.printers && Array.isArray(data.printers) && data.printers.length > 0 && changed('printers', data.printers)) {
-      localStorage.setItem('printers_config', JSON.stringify(data.printers));
-      window.dispatchEvent(new Event('printers_changed'));
+      setServerPrinters(data.printers);
     }
     if (data.discounts && Array.isArray(data.discounts) && data.discounts.length > 0 && changed('discounts', data.discounts)) {
       localStorage.setItem('pos_discounts', JSON.stringify(data.discounts));
@@ -291,41 +544,121 @@ function App() {
     }
   };
 
-  const fetchOrdersFromSheet = async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000); // timeout 15 วิ
+  // เขียนทับเฉพาะส่วนที่ดึงมา ลงก้อน cache รวม 'gas_all_data'
+  // (ชื่อคีย์ยังใช้ของเดิม เพราะหน้าหลังบ้านหลายหน้าอ่าน/แก้ก้อนนี้อยู่ และเครื่องที่ใช้งานอยู่มีข้อมูลค้างในคีย์นี้)
+  const mergeIntoCache = (partial) => {
     try {
-      const resp = await fetch(GAS_URL + '?action=getAllData', { signal: controller.signal });
+      const base = JSON.parse(localStorage.getItem('gas_all_data') || '{}') || {};
+      const merged = { ...base, ...partial };
+      delete merged.error; // กันข้อความ error จากเซิร์ฟเวอร์ค้างอยู่ในก้อน cache
+      localStorage.setItem('gas_all_data', JSON.stringify(merged));
+    } catch {}
+  };
+
+  // ยิง action ใหม่ก่อน ถ้าปลายทางเป็นเวอร์ชันเก่าจะตอบ {"error":"Unknown GET action"}
+  // → จำไว้แล้วถอยไปใช้ getAllData ตลอดทั้ง session
+  const fetchAction = async (action, signal) => {
+    if (legacyGasRef.current) return await (await fetch(API_URL + '?action=getAllData', { signal })).text();
+    // getLive ของแต่ละสาขา = โต๊ะและบิลของร้านตัวเองเท่านั้น / getStatic = เมนูที่ปรับตามสาขาแล้ว
+    const branchQs = (action === 'getLive' || action === 'getStatic') && branchKeyRef.current
+      ? '&branch=' + encodeURIComponent(branchKeyRef.current) : '';
+    const text = await (await fetch(API_URL + '?action=' + action + branchQs, { signal })).text();
+    if (text.indexOf('Unknown GET action') !== -1) {
+      legacyGasRef.current = true;
+      console.warn(`API ยังไม่รองรับ ?action=${action} — ใช้ getAllData แทน (ต้องอัปเดต API เป็นเวอร์ชันใหม่)`);
+      return await (await fetch(API_URL + '?action=getAllData', { signal })).text();
+    }
+    return text;
+  };
+
+  // ข้อมูล "เย็น" — เมนู/หมวดหมู่/โปรโมชั่น/พนักงาน/ปริ้นเตอร์/ส่วนลด/ตั้งค่า
+  // เปลี่ยนเฉพาะตอนแก้หลังบ้าน → ดึงนาทีละครั้งพอ
+  const fetchStaticFromSheet = async () => {
+    if (staticInFlightRef.current) return;
+    staticInFlightRef.current = true;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    try {
+      const text = await fetchAction('getStatic', controller.signal);
+      if (text === lastStaticRef.current) return; // เหมือนเดิมเป๊ะ → ไม่ต้องทำอะไรต่อ
+      lastStaticRef.current = text;
+      const data = JSON.parse(text);
+      if (data) {
+        mergeIntoCache(data);
+        processAppGASData(data);
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('Error fetching static from API:', e);
+    } finally {
       clearTimeout(timer);
-      const text = await resp.text();
+      staticInFlightRef.current = false;
+    }
+  };
+
+  // ข้อมูล "ร้อน" — รายการอาหารรายโต๊ะ + ออเดอร์ล่าสุด ต้องสดเสมอ (อ่านแค่ 2 ชีท)
+  const fetchOrdersFromSheet = async () => {
+    if (kioskPathRef.current) return; // หน้าลูกค้าสั่งเองไม่ใช้ข้อมูลโต๊ะ/บิล (และไม่มีสิทธิ์อ่านเมื่อบังคับล็อกอิน)
+    if (inFlightRef.current) return; // รอบก่อนยังค้างอยู่ → ข้าม กันคำขอกองซ้อนกัน
+    inFlightRef.current = true;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000); // timeout 20 วิ
+    try {
+      const text = await fetchAction('getLive', controller.signal);
+      clearTimeout(timer);
       // ถ้าข้อมูลเหมือนเดิมเป๊ะ → ข้ามทั้งหมด (ไม่ parse/ไม่เซ็ต state/ไม่เขียน localStorage)
       if (text === lastRawRef.current) return;
       lastRawRef.current = text;
       const data = JSON.parse(text);
       if (data) {
-        localStorage.setItem('gas_all_data', text);
+        // ต้อง merge ไม่ใช่เขียนทับ — ไม่งั้นเมนู/หมวดหมู่ที่ดึงมาจาก getStatic จะหายไปจาก cache
+        mergeIntoCache(data);
         processAppGASData(data);
       }
     } catch (e) {
       clearTimeout(timer);
-      if (e.name !== 'AbortError') console.error('Error fetching from GAS:', e);
+      if (e.name !== 'AbortError') console.error('Error fetching from API:', e);
       // ถ้า cache มีอยู่แล้ว ให้ใช้ cache แสดงแทน
       const cached = localStorage.getItem('gas_all_data');
       if (cached) {
         try { processAppGASData(JSON.parse(cached)); } catch {}
       }
+    } finally {
+      clearTimeout(timer);
+      inFlightRef.current = false;
     }
   };
 
+  // ปุ่มรีเฟรช = กดเอง จึงดึงทั้งของสดและเมนู/ตั้งค่าใหม่ทั้งคู่
   const refreshTableOrders = async () => {
     setIsRefreshing(true);
-    await fetchOrdersFromSheet();
+    await Promise.all([fetchOrdersFromSheet(), fetchStaticFromSheet()]);
     setIsRefreshing(false);
   };
 
   React.useEffect(() => {
+    // แสดงเมนู/หมวดหมู่จาก cache ในเครื่องทันที ไม่ต้องรอเซิร์ฟเวอร์ตอบ
+    // ของจริงจะ sync ทับเบื้องหลัง — changed() กันไม่ให้ re-render ซ้ำถ้าข้อมูลเหมือนเดิม
+    const cached = localStorage.getItem('gas_all_data');
+    if (cached) {
+      try { processAppGASData(JSON.parse(cached)); } catch {}
+    }
+    fetchStaticFromSheet();
     fetchOrdersFromSheet();
-    const interval = setInterval(fetchOrdersFromSheet, 10000);
+    // แยกจังหวะ: ข้อมูลโต๊ะต้องสด → ทุก 20 วิ (อ่านแค่ 2 ชีท เร็ว)
+    //            เมนู/พนักงาน/ตั้งค่า เปลี่ยนนาน ๆ ที → ทุก 1 นาที
+    // หยุด poll เมื่อแท็บถูกซ่อน (พับจอ/สลับแอป) แล้วดึงทันทีตอนกลับมา
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchOrdersFromSheet();
+    }, 20000);
+    const staticInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchStaticFromSheet();
+    }, 60000);
+    const handleVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      fetchOrdersFromSheet();
+      fetchStaticFromSheet();
+    };
+    document.addEventListener('visibilitychange', handleVisible);
     const handleLocalUpdate = () => {
       const cached = localStorage.getItem('gas_all_data');
       if (cached) {
@@ -338,6 +671,8 @@ function App() {
     window.addEventListener('appDataChanged', handleLocalUpdate);
     return () => {
       clearInterval(interval);
+      clearInterval(staticInterval);
+      document.removeEventListener('visibilitychange', handleVisible);
       window.removeEventListener('appDataChanged', handleLocalUpdate);
     };
   }, []);
@@ -350,7 +685,7 @@ function App() {
   };
 
   React.useEffect(() => {
-    const visibleCats = categories.filter(cat => liveMenu.some(i => itemInCategory(i, cat.slug)));
+    const visibleCats = categories.filter(cat => categoryVisibleFor(cat, 'staff') && liveMenu.some(i => itemInCategory(i, cat.slug)));
     if (visibleCats.length > 0 && !visibleCats.find(c => c.slug === activeCategory)) {
       setActiveCategory(visibleCats[0].slug);
     }
@@ -358,90 +693,138 @@ function App() {
 
   const [selectedFood, setSelectedFood] = useState(null);
   const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  // รายการ "ประเภทลูกค้า" ทั้งหมด (รวมจากชื่อราคาของทุกเมนู) — '' = ราคาปกติ
-  const customerTypeOptions = React.useMemo(() => {
-    const names = new Set();
-    (liveMenu || []).forEach(m => {
-      getPriceOptions(m).forEach(o => { if (o.name && o.name.trim()) names.add(o.name.trim()); });
-    });
-    names.delete('ปกติ'); // ปกติ = ค่าเริ่มต้น แทนด้วย ''
-    return ['', ...Array.from(names)];
-  }, [liveMenu]);
+  React.useEffect(() => {
+    setCart([]);
+  }, [tableNumber]);
 
-  // ราคาตาม "ประเภทลูกค้า" ที่เลือก — ถ้าเมนูไม่มีประเภทนั้น ใช้ราคาปกติแทน
+  // ราคาที่เมนูตั้งไว้สำหรับ "ประเภทลูกค้า/ช่องทาง" ที่เลือกอยู่ — ไม่ได้ตั้งไว้คืน null
+  const priceForCustomerType = (food) => priceForSaleType(getPriceOptions(food), customerType);
+
+  // เมนูนี้ขายในประเภทที่เลือกอยู่ได้ไหม
+  // ขายปกติ/ทานที่ร้านก็ต้องเช็คเหมือนกัน — เมนูที่ตั้งไว้แต่ราคา Takehome/Deli
+  // (เช่นของทานเล่น TD, โปรเฉพาะ Delivery) ยังขายหน้าร้านไม่ได้
+  const hasPriceForCustomerType = (food) => !!priceForCustomerType(food);
+
+  // ราคาตาม "ประเภทลูกค้า/ช่องทาง" ที่เลือก — ไม่มีของประเภทนั้นก็ตกไปใช้ราคาแรกไว้โชว์
+  // (หน้าขายปิดไม่ให้กดสั่งเมนูพวกนี้อยู่แล้ว ตัวเลขนี้แค่กันพังตอนเรนเดอร์)
   const resolvePrice = (food) => {
     const opts = getPriceOptions(food);
-    if (customerType) {
-      const match = opts.find(o => (o.name || '').trim() === customerType);
-      if (match) return match;
-    }
-    return opts.find(o => (o.name || '').trim() === 'ปกติ') || opts[0];
+    return priceForSaleType(opts, customerType) || opts[0];
   };
 
+  // ถามเรื่อง "ทานที่ร้าน / ห่อกลับบ้าน" เฉพาะตอนขายแบบทานที่ร้าน
+  // (ถ้าหัวตะกร้าเลือก Takehome/Deli ไว้แล้ว ถือว่ารู้ชุดราคาแน่นอน ไม่ต้องถามซ้ำ)
+  const askDining = customerType === '';
+
+  // รายการหมายเหตุที่ร้านตั้งไว้ ใช้ในป๊อปอัพหน้าขาย
+  const posNoteConfig = React.useMemo(() => resolveNoteConfig(posSettings), [posSettings]);
+
   const handleOrderClick = (food) => {
-    if (!currentShift) {
-      alert(lang === 'th' ? 'กรุณาเปิดกะก่อนจึงจะสั่งอาหารได้' : 'Please open a shift before ordering.');
-      return;
-    }
-    // ราคาถูกกำหนดจาก "ประเภทลูกค้า" ด้านบนแล้ว → ไม่ต้องเลือกราคาใน popup อีก
     const cats = allCategories.length > 0 ? allCategories : categories;
     const cfg = resolvePopupSource(food, cats);
     const hasPopups = [1, 2, 3, 4, 5, 6].some(i => cfg[`hasPopup${i}`] === true);
-    if (hasPopups) {
+    // เมนูที่หมวดไม่ได้ปิดคำถามไว้ ต้องเปิด popup เพื่อถามการรับประทาน
+    // (หมวดเครื่องดื่มตั้ง hasDining = false ไว้ จึงข้ามคำถามนี้ไปเหมือนเดิม)
+    const needsDining = askDining && cfg.hasDining !== false;
+
+    if (hasPopups || needsDining) {
       setSelectedFood(food);
     } else {
-      // ไม่มี popup → เพิ่มลงตะกร้าทันที
+      // ไม่มี popup → เพิ่มลงตะกร้าทันทีตามราคาของ "ประเภทลูกค้า/ช่องทาง" ที่เลือกไว้ที่หัวโต๊ะ (ปกติ / Takehome / Deli)
       handleConfirmOrder(food, {
         allPopups: [],
-        dining: food.category === 'drink'
-          ? { id: 'drink', name: 'เครื่องดื่ม', nameEn: 'Drinks' }
-          : { id: 'dine_in', name: 'ทานที่ร้าน', nameEn: 'Dine-in' }
+        dining: customerType === 'Takehome'
+          ? { id: 'takeaway', name: 'ห่อกลับบ้าน', nameEn: 'Takeaway' }
+          : (cfg.hasDining === false
+            ? categoryDining(food, cats)
+            : { id: 'dine_in', name: 'ทานที่ร้าน', nameEn: 'Dine-in' })
       });
     }
   };
 
+  // เพิ่ม 1 รายการลงตะกร้า — ถ้ามีรายการเหมือนกันเป๊ะอยู่แล้ว (เมนู/ราคา/ตัวเลือก/ชื่อลูกค้า/การรับประทาน)
+  // ให้บวกจำนวนแทนการเพิ่มบรรทัดใหม่
+  const mergeIntoCart = (list, { food, popups = [], customerName: name = '', spice, promo, dining, fromPopupOf, note = '' }) => {
+    const popupsIds = popups.map(p => p.id).sort().join('-') || 'no_popups';
+    // หมายเหตุคนละแบบ = คนละบรรทัด ไม่งั้น "ไม่เผ็ด" กับ "เผ็ดมาก" จะถูกรวมเป็นจานเดียวกัน
+    const cartItemId = `${food.id}_${food.priceName || ''}_${name}_${popupsIds}_${spice?.id}_${promo?.id}_${dining?.id}_${fromPopupOf || ''}_${note}`;
+    const existingIndex = list.findIndex(item => item.cartItemId === cartItemId);
+    if (existingIndex >= 0) {
+      const next = [...list];
+      next[existingIndex] = { ...next[existingIndex], quantity: next[existingIndex].quantity + 1 };
+      return next;
+    }
+    return [...list, {
+      cartId: Date.now() + Math.random(),
+      cartItemId,
+      food,
+      quantity: 1,
+      customerName: name,
+      allPopups: popups,
+      note,
+      spice,
+      promo,
+      dining,
+      // มาจากป๊อปอัพของเมนูไหน — ใช้โชว์ในตะกร้าว่าสั่งพ่วงมากับจานไหน
+      fromPopupOf: fromPopupOf || null
+    }];
+  };
+
   const handleConfirmOrder = (rawFood, orderDetails) => {
-    // ราคาฐานมาจาก "ประเภทลูกค้า" ที่เลือกไว้ (fallback = ราคาปกติ)
-    const chosen = resolvePrice(rawFood);
+    // ราคาฐานมาจากราคาที่เลือกจาก popup (ถ้าเลือกไว้) หรือจาก "ประเภทลูกค้า" (fallback = ราคาปกติ)
+    const chosen = orderDetails?.selectedPrice || resolvePrice(rawFood);
     const baseFood = chosen
       ? { ...rawFood, price: Number(chosen.price) || 0, priceName: chosen.name || '' }
       : rawFood;
-    const bundledPopups = [];
+    // เมนูที่เพิ่มอัตโนมัติเมื่อสั่ง (Bundled Items) = เมนูจริงที่แถมไปกับจานนี้
+    // ลงตะกร้าเป็นรายการของตัวเองราคา ฿0 ครัวจะได้เห็นเป็นคนละรายการ และวิ่งไปเครื่องพิมพ์ของเมนูนั้นเอง
+    const bundledFoods = [];
     if (baseFood.bundledItems && baseFood.bundledItems.length > 0) {
       baseFood.bundledItems.forEach(bundledId => {
         const bundledFood = liveMenu.find(m => String(m.id) === String(bundledId));
         if (bundledFood) {
-          bundledPopups.push({ ...bundledFood, id: `bundled_${bundledFood.id}`, price: 0, isBundled: true });
+          bundledFoods.push({ ...bundledFood, price: 0, priceName: '', isBundled: true });
         }
       });
     }
     const orderCustomerName = customerName.trim();
-    const allPopupsWithBundled = [...(orderDetails.allPopups || []), ...bundledPopups];
-    const popupsIds = allPopupsWithBundled.map(p => p.id).sort().join('-') || 'no_popups';
-    const cartItemId = `${baseFood.id}_${baseFood.priceName || ''}_${orderCustomerName}_${popupsIds}_${orderDetails.spice?.id}_${orderDetails.promo?.id}_${orderDetails.dining?.id}`;
-    const existingItemIndex = cart.findIndex(item => item.cartItemId === cartItemId);
-    let newCart;
-    if (existingItemIndex >= 0) {
-      newCart = [...cart];
-      newCart[existingItemIndex].quantity += 1;
-    } else {
-      newCart = [...cart, {
-        cartId: Date.now() + Math.random(),
-        cartItemId,
-        food: baseFood,
-        quantity: 1,
+
+    let newCart = mergeIntoCart(cart, {
+      food: baseFood,
+      popups: orderDetails.allPopups || [],
+      customerName: orderCustomerName,
+      spice: orderDetails.spice,
+      promo: orderDetails.promo,
+      note: orderDetails.note || '',
+      dining: orderDetails.dining
+    });
+
+    // ป๊อปอัพที่ตั้งให้ "แยกเป็นรายการต่างหาก" — ลงตะกร้าเป็นรายการของตัวเอง
+    // จะได้ขึ้นเป็นคนละบรรทัดในบิล/ใบครัว และวิ่งไปเครื่องพิมพ์ของเมนูตัวเองได้
+    (orderDetails.separateItems || []).forEach(row => {
+      newCart = mergeIntoCart(newCart, {
+        food: row.food,
+        popups: row.options || [],
         customerName: orderCustomerName,
-        allPopups: allPopupsWithBundled,
-        spice: orderDetails.spice,
-        promo: orderDetails.promo,
-        dining: orderDetails.dining
-      }];
-    }
+        dining: orderDetails.dining,
+        fromPopupOf: baseFood.name
+      });
+    });
+
+    // เมนูแถม — รายการของตัวเองราคา ฿0 (ซ้ำ id เดิมหลายครั้ง = จำนวนหลายชิ้น จะถูกรวมเป็นจำนวนให้เอง)
+    bundledFoods.forEach(bundledFood => {
+      newCart = mergeIntoCart(newCart, {
+        food: bundledFood,
+        popups: [],
+        customerName: orderCustomerName,
+        dining: orderDetails.dining,
+        fromPopupOf: baseFood.name
+      });
+    });
+
     setCart(newCart);
     setSelectedFood(null);
-    setIsCartOpen(true);
   };
 
   const handleUpdateQuantity = (cartId, delta) => {
@@ -507,38 +890,81 @@ function App() {
         grouped.forEach(g => parts.push(g.count > 1 ? `${g.name} ×${g.count}` : g.name));
       }
       if (item.promo && item.promo.id !== 'none' && item.promo.name) parts.push(item.promo.name);
+      // รายการที่แยกออกมาจากป๊อปอัพ — บอกครัวว่าสั่งพ่วงมากับจานไหน
+      if (item.fromPopupOf) parts.push('พ่วงกับ ' + item.fromPopupOf);
       if (item.note && item.note.trim()) parts.push('📝 ' + item.note.trim());
+
+      let unitPrice = Number(item.food.price) || 0;
+      if (item.allPopups && item.allPopups.length > 0) {
+        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
+      }
+      if (item.promo && item.promo.price) {
+        unitPrice += Number(item.promo.price) || 0;
+      }
+
       return {
         TableNumber: tableNumber,
         SessionId: sessionId,
         ItemName: item.food.name,
         ItemNameEn: item.food.nameEn || item.food.name,
-        ItemPrice: Number(item.food.price) || 0,
+        ItemPrice: unitPrice,
         Quantity: Number(item.quantity) || 1,
         Options: parts.join(', '),
         Timestamp: timestamp,
         Status: 'pending',
-        RecordedBy: currentUser ? currentUser.username : ''
+        RecordedBy: branch
+      };
+    });
+
+    const cartForServer = cart.map(item => {
+      let unitPrice = Number(item.food.price) || 0;
+      if (item.allPopups && item.allPopups.length > 0) {
+        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
+      }
+      if (item.promo && item.promo.price) {
+        unitPrice += Number(item.promo.price) || 0;
+      }
+      return {
+        ...item,
+        food: {
+          ...item.food,
+          price: unitPrice
+        }
       };
     });
 
     setTableOrders(prev => [...prev, ...newLocalItems]);
     setCart([]);
-    setIsCartOpen(false);
-    navigate('/table-orders');
+
+    // ── พิมพ์ใบครัวทันทีที่กดส่ง ──
+    // แยกใบไปตามเครื่องพิมพ์ที่ตั้งไว้ในแต่ละเมนู (printerId) ไม่ได้ตั้งก็ตกไปเครื่องประเภทครัว
+    // ไม่ await เพื่อไม่ให้การบันทึกลงชีตต้องรอเครื่องพิมพ์ตอบ
+    if (getPrinters().length > 0) {
+      printKitchenOrder(buildKitchenOrder(newLocalItems, tableNumber, sessionId, timestamp, diningForTable(kioskTables, tableNumber)), allMenu)
+        .then(res => {
+          // เงียบตอนสำเร็จ แต่ต้องบอกให้รู้ตอนพิมพ์ไม่ออก ไม่งั้นครัวไม่ได้ใบแล้วไม่มีใครรู้
+          if (!res.success) {
+            setSaveAlert({ type: 'error', msg: `⚠️ ส่งรายการเข้าบิลแล้ว แต่พิมพ์ใบครัวไม่สำเร็จ: ${res.error || 'ไม่ทราบสาเหตุ'}` });
+          }
+        })
+        .catch(err => {
+          setSaveAlert({ type: 'error', msg: `⚠️ ส่งรายการเข้าบิลแล้ว แต่พิมพ์ใบครัวไม่สำเร็จ: ${err.message || err}` });
+        });
+    }
 
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: 'addTableOrder',
+          branchId: branchKey,
           tableNumber: String(tableNumber),
           sessionId,
-          items: cart,
+          items: cartForServer,
           timestamp,
-          recordedBy: currentUser ? currentUser.username : ''
+          recordedBy: branch
         })
       });
       // Refresh after saving
@@ -548,48 +974,123 @@ function App() {
     }
   };
 
+  // ใบเสร็จของรายการที่ลูกค้าสแกน QR จ่ายเองแล้ว — แยกใบตามเลขบิล (ในหมายเหตุ "💳 ชำระแล้ว SELF-#008")
+  // จ่ายด้วยการโอน จึงไม่เปิดลิ้นชักเก็บเงิน (noDrawer)
+  const printSettledReceipts = async (tbl) => {
+    const receiptPrinter = getPrinterByType('receipt');
+    if (!receiptPrinter || !receiptPrinter.ip) return { success: false, error: 'ยังไม่ได้ตั้งเครื่องพิมพ์ใบเสร็จ' };
+    const rows = tableOrders.filter(o => String(o.TableNumber) === tbl && o.Status === 'paid');
+    const bills = new Map();
+    rows.forEach(o => {
+      const opts = String(o.Options || '');
+      const m = /ชำระแล้ว\s+(\S+)/.exec(opts);
+      const billNo = m ? m[1] : `โต๊ะ ${tbl}`;
+      if (!bills.has(billNo)) bills.set(billNo, []);
+      bills.get(billNo).push(o);
+    });
+    const money2 = (n) => (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    let failed = '';
+    for (const [billNo, items] of bills) {
+      const total = items.reduce((s, o) => s + (Number(o.ItemPrice) || 0) * (Number(o.Quantity) || 1), 0);
+      const orderData = {
+        id: billNo,
+        orderNumber: billNo,
+        noDrawer: true,
+        paid: true,
+        customerDetails: { name: `โต๊ะ ${tbl}` },
+        items: items.map(o => {
+          const qty = Number(o.Quantity) || 1;
+          const opt = String(o.Options || '').split('|')[0].replace(/💳.*$/, '').trim();
+          return {
+            isFlattened: true,
+            name: qty > 1 ? `${o.ItemName} (x${qty})` : o.ItemName,
+            amount: (Number(o.ItemPrice) || 0) * qty,
+            subItems: opt ? opt.split(', ').filter(Boolean) : []
+          };
+        }),
+        summary: [{ label: 'ชำระโดย', value: 'เงินโอน (QR)' }],
+        total: money2(total)
+      };
+      const res = await sendPrintJob({ ip: receiptPrinter.ip, printerType: 'receipt', orderData }).catch(e => ({ success: false, error: e.message }));
+      if (!res || !res.success) failed = (res && res.error) || 'พิมพ์ไม่สำเร็จ';
+    }
+    return failed ? { success: false, error: failed } : { success: true };
+  };
+
+  // ปิดโต๊ะที่ลูกค้าสั่งเองและจ่ายครบแล้ว — ไม่ต้องออกบิลใหม่ (บิลถูกออกตอนพนักงานยืนยันการโอน)
+  // พิมพ์ใบเสร็จให้ลูกค้า แล้วล้างรายการของโต๊ะให้กลับมาว่างสำหรับลูกค้าคนถัดไป
+  const handleCloseSettledTable = async (targetTable) => {
+    const tbl = String(targetTable || tableNumber);
+    // พิมพ์ใบเสร็จก่อนล้างโต๊ะ (ข้อมูลรายการอยู่ในโต๊ะนี้) — พิมพ์ไม่ออกก็ยังคืนโต๊ะได้ แต่แจ้งให้รู้
+    printSettledReceipts(tbl).then(res => {
+      if (!res.success) setSaveAlert({ type: 'error', msg: `⚠️ คืนโต๊ะ ${tbl} แล้ว แต่พิมพ์ใบเสร็จไม่สำเร็จ: ${res.error}` });
+    });
+    setTableOrders(prev => prev.filter(o => String(o.TableNumber) !== tbl));
+    localStorage.removeItem('customer_count_' + tbl);
+    setTableNumber('');
+    navigate('/index');
+    try {
+      await fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'clearTableOrders', branchId: branchKey, tableNumber: tbl, includePaid: true })
+      });
+      setTimeout(() => fetchOrdersFromSheet(), 1500);
+    } catch (e) {
+      console.error('Error clearing settled table:', e);
+    }
+  };
+
+  // พิมพ์ใบครัวซ้ำสำหรับรายการที่ส่งไปแล้ว — ใช้ตอนกระดาษติดหรือใบหาย
+  const handlePrintKitchenAgain = async (rows) => {
+    if (!rows || rows.length === 0) return;
+    if (getPrinters().length === 0) {
+      setSaveAlert({ type: 'error', msg: '⚠️ ยังไม่ได้ตั้งค่าเครื่องพิมพ์ — ไปที่ จัดการหลังบ้าน > ตั้งค่าเครื่องพิมพ์' });
+      return;
+    }
+    const res = await printKitchenOrder(
+      buildKitchenOrder(rows, tableNumber, 'reprint-' + Date.now(), getThaiTimeISO(), diningForTable(kioskTables, tableNumber)),
+      allMenu
+    );
+    if (res.success) {
+      setSaveAlert({ type: 'success', msg: `🖨️ ส่งใบครัวไปที่เครื่องพิมพ์แล้ว (${res.printed}/${res.total} ใบ)` });
+      setTimeout(() => setSaveAlert(cur => (cur && cur.type === 'success' ? null : cur)), 4000);
+    } else {
+      setSaveAlert({ type: 'error', msg: `⚠️ พิมพ์ใบครัวไม่สำเร็จ: ${res.error || 'ไม่ทราบสาเหตุ'}` });
+    }
+  };
+
   // =============================================
   // NEW: Open checkout from table view
   // =============================================
-  const handleOpenCheckoutFromTable = (items, total) => {
+  const handleOpenCheckoutFromTable = (items, total, discount = null) => {
     setCheckoutItems(items);
     setCheckoutTotal(total);
+    setCheckoutDiscount(discount);
     setIsCheckoutOpen(true);
+  };
+
+  // พิมพ์ใบแจ้งยอดให้ลูกค้าตรวจก่อนชำระเงิน (ไม่เปิดลิ้นชักเก็บเงิน)
+  const handlePrintPreBill = async (order) => {
+    const res = await printPreBill(order);
+    if (res.success) {
+      setSaveAlert({ type: 'success', msg: '🧾 พิมพ์ใบแจ้งยอดให้ลูกค้าแล้ว' });
+      setTimeout(() => setSaveAlert(cur => (cur && cur.type === 'success' ? null : cur)), 4000);
+    } else {
+      setSaveAlert({ type: 'error', msg: `⚠️ พิมพ์ใบแจ้งยอดไม่สำเร็จ: ${res.error || 'ไม่ทราบสาเหตุ'}` });
+    }
   };
 
   // =============================================
   // NEW: Complete payment - save to Orders, clear TableOrders
   // =============================================
-  const handleCheckoutComplete = async (grandTotal, paymentMethod, paymentDetails) => {
+  const handleCheckoutComplete = async (grandTotal, paymentMethod, paymentDetails, printInfo = {}) => {
     const finalTotal = grandTotal || checkoutTotal;
 
-    // Update shift sales accumulator
-    setShiftSales(prev => {
-      let addCash, addTransfer, addCard;
-      if (paymentDetails) {
-        // แยกจ่าย — กระจายตามจำนวนเงินที่ระบุแต่ละประเภท
-        addCash     = Number(paymentDetails.cash)     || 0;
-        addTransfer = Number(paymentDetails.transfer) || 0;
-        addCard     = Number(paymentDetails.card)     || 0;
-      } else {
-        const m = (paymentMethod || '').toLowerCase();
-        addCash     = (m.includes('สด') || m === 'cash') ? finalTotal : 0;
-        addTransfer = (m.includes('โอน') || m.includes('qr')) ? finalTotal : 0;
-        addCard     = (m.includes('บัตร') || m === 'card') ? finalTotal : 0;
-      }
-      const updated = {
-        totalSales:    (prev.totalSales    || 0) + finalTotal,
-        totalOrders:   (prev.totalOrders   || 0) + 1,
-        totalCash:     (prev.totalCash     || 0) + addCash,
-        totalTransfer: (prev.totalTransfer || 0) + addTransfer,
-        totalCard:     (prev.totalCard     || 0) + addCard,
-      };
-      localStorage.setItem('shift_sales', JSON.stringify(updated));
-      return updated;
-    });
-    const nextNum = maxOrderNum + 1;
-    setMaxOrderNum(nextNum);
-    const newOrderNumber = `#${String(nextNum).padStart(3, '0')}`;
+    const nextNum = (branchMaxMap[branch] || 0) + 1;
+    setBranchMaxMap(prev => ({ ...prev, [branch]: nextNum }));
+    const newOrderNumber = `${billPrefix}-#${String(nextNum).padStart(3, '0')}`;
     const timestamp = getThaiTimeISO();
 
     const count = localStorage.getItem('customer_count_' + tableNumber) || '';
@@ -600,18 +1101,19 @@ function App() {
     const rowsToSend = [];
     checkoutItems.forEach(item => {
       const qty = Number(item.Quantity) || 1;
-      const qtyText = qty > 1 ? ` (x${qty})` : '';
       const price = (Number(item.ItemPrice) || 0) * qty;
       rowsToSend.push([
         timestamp, newOrderNumber, customerName, address,
-        item.ItemName + qtyText, 'ทานที่ร้าน', price,
-        finalTotal, 'Completed', timestamp, timestamp, currentUser ? currentUser.username : ''
+        item.ItemName, 'ทานที่ร้าน', price,
+        finalTotal, 'Completed', timestamp, timestamp, branch,
+        qty
       ]);
       if (item.Options) {
         rowsToSend.push([
           timestamp, newOrderNumber, customerName, address,
           `↳ ${item.Options}`, 'ทานที่ร้าน', 0,
-          finalTotal, 'Completed', timestamp, timestamp, currentUser ? currentUser.username : ''
+          finalTotal, 'Completed', timestamp, timestamp, branch,
+          ""
         ]);
       }
     });
@@ -633,71 +1135,103 @@ function App() {
     setIsCheckoutOpen(false);
     localStorage.removeItem('customer_count_' + tableNumber);
     setTableNumber('');
-    navigate('/table-select');
+    navigate('/index');
 
+    // Save to Orders sheet + payment record ในคำขอเดียว (atomic) — กันบิลขึ้นแต่ payment หาย
+    // ใช้ fetch แบบอ่าน response ได้ (ไม่ใช้ no-cors) เพื่อ "ตรวจจับ" ว่าบันทึกสำเร็จจริงหรือไม่
+    // เซิร์ฟเวอร์เป็นคนออกเลขบิล (assignNumber) — เลขที่ใบกำกับภาษีอย่างย่อเรียงต่อเนื่องชุดเดียวต่อสาขา
+    // แม้สาขามีหลายเครื่อง · clientRef กันบิลซ้ำเมื่อส่งซ้ำ · newOrderNumber เป็นแค่เลขชั่วคราวบนจอ
+    const clientRef = (window.crypto && window.crypto.randomUUID)
+      ? window.crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    const orderPayload = {
+      action: 'insertOrder',
+      assignNumber: true,
+      clientRef,
+      branchId: branchKey,
+      rows: rowsToSend,
+      payment: {
+        orderNumber: newOrderNumber,
+        tableNo: String(tableNumber),
+        paymentMethod,
+        grandTotal: finalTotal,
+        staff: currentUser?.username || '',
+        shiftId: '', // เลิกใช้ระบบกะแล้ว เก็บช่องไว้ให้โครงสร้างข้อมูลเดิมไม่เปลี่ยน
+        splitDetail: paymentDetails ? JSON.stringify(paymentDetails) : ''
+      }
+    };
+    let finalNo = '';
     try {
-      // Save to Orders sheet
-      await fetch(GAS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'insertOrder', rows: rowsToSend })
-      });
+      const json = await postOrderPayload(orderPayload);
+      finalNo = (json && json.orderNumber) || newOrderNumber;
     } catch (error) {
       console.error('Error saving order:', error);
+      // เก็บบิลที่บันทึกไม่สำเร็จไว้ในเครื่อง เพื่อไม่ให้ข้อมูลหาย + ให้ retry/ตรวจสอบภายหลังได้
+      try {
+        const pending = JSON.parse(localStorage.getItem('pending_orders') || '[]');
+        pending.push({ payload: orderPayload, receiptOrder: printInfo.receiptOrder || null, at: new Date().toISOString(), error: String(error.message || error) });
+        localStorage.setItem('pending_orders', JSON.stringify(pending));
+      } catch {}
+      setSaveAlert({ type: 'error', msg: `⚠️ บันทึกบิลโต๊ะ ${tableNumber || '-'} (${paymentMethod}) ขึ้นระบบไม่สำเร็จ! สาเหตุ: ${error.message} — ข้อมูลถูกสำรองไว้ในเครื่องแล้ว ระบบจะลองส่งซ้ำเองทุก ${PENDING_RETRY_MS / 60000} นาที และพิมพ์ใบกำกับภาษีอย่างย่อตามให้เมื่อบันทึกได้` });
     }
 
+    // เลขจริงจากเซิร์ฟเวอร์ → แก้เลขชั่วคราวบนจอ
+    if (finalNo && finalNo !== newOrderNumber) {
+      setOrders(prev => prev.map(o => (o.id === newOrderNumber ? { ...o, id: finalNo, orderNumber: finalNo } : o)));
+      const seq = parseInt((/#(\d+)\s*$/.exec(finalNo) || [])[1], 10);
+      if (!isNaN(seq)) setBranchMaxMap(prev => ({ ...prev, [branch]: Math.max(prev[branch] || 0, seq) }));
+    }
+
+    // ── พิมพ์ใบเสร็จหลังได้เลขบิลจากเซิร์ฟเวอร์ ──
+    // ได้เลขแล้ว = ใบกำกับภาษีอย่างย่อ · บันทึกไม่สำเร็จ = ใบเสร็จรับเงินธรรมดา (ยังไม่มีเลขที่ใบกำกับ) ใบกำกับพิมพ์ตามเมื่อส่งซ้ำสำเร็จ
     try {
-      // Clear TableOrders for this table
-      await fetch(GAS_URL, {
+      const receiptPrinter = getPrinterByType('receipt');
+      const receiptNo = finalNo || 'รอบันทึกบิล';
+      const base = printInfo.receiptOrder
+        ? { ...printInfo.receiptOrder, id: receiptNo, orderNumber: receiptNo }
+        : { ...newOrder, id: receiptNo, orderNumber: receiptNo };
+      if (receiptPrinter) {
+        sendPrintJob({ ip: receiptPrinter.ip, printerType: 'receipt', orderData: { ...base, paid: !!finalNo } })
+          .then(result => { if (!result.success) console.error('Silent print failed:', result.error); })
+          .catch(err => console.error('Silent print failed:', err));
+      } else if (printInfo.print && printInfo.buildReceiptHtml) {
+        print80mm(printInfo.buildReceiptHtml(receiptNo, !!finalNo));
+      }
+    } catch (e) { console.error('Receipt print failed:', e); }
+
+    // ล้างโต๊ะกับตัดสต็อกไม่ขึ้นต่อกัน ยิงพร้อมกันได้ ไม่ต้องรอทีละรอบ
+    // (ยังต้องยิงหลังบันทึกบิลสำเร็จ ไม่งั้นบิลพังแล้วรายการในโต๊ะหายไปด้วย)
+    const deductItems = checkoutItems
+      .map(item => {
+        const menuItem = allMenu.find(m => m.name === item.ItemName || m.nameEn === item.ItemNameEn);
+        return menuItem ? { menuId: String(menuItem.id), menuName: item.ItemName, qty: Number(item.Quantity) || 1 } : null;
+      })
+      .filter(Boolean);
+
+    const backgroundJobs = [
+      // ปิดบิลแล้ว = โต๊ะจบ ล้างรวมรายการที่ลูกค้าจ่ายเองมาก่อนหน้าด้วย
+      fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'clearTableOrders', tableNumber: String(tableNumber) })
-      });
-    } catch (error) {
-      console.error('Error clearing table orders:', error);
-    }
+        body: JSON.stringify({ action: 'clearTableOrders', branchId: branchKey, tableNumber: String(tableNumber), includePaid: true })
+      }).catch(error => console.error('Error clearing table orders:', error))
+    ];
 
-    try {
-      // Save payment record for reports
-      await fetch(GAS_URL, {
-        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'savePaymentRecord', orderNumber: newOrderNumber, tableNo: String(tableNumber), paymentMethod, grandTotal: finalTotal, staff: currentUser?.username || '', shiftId: currentShift?.id || '', splitDetail: paymentDetails ? JSON.stringify(paymentDetails) : '' })
-      });
-    } catch (error) { console.error('Error saving payment record:', error); }
-
-    try {
+    if (deductItems.length > 0) {
       // Deduct stock based on BOM
-      const deductItems = checkoutItems
-        .map(item => {
-          const menuItem = allMenu.find(m => m.name === item.ItemName || m.nameEn === item.ItemNameEn);
-          return menuItem ? { menuId: String(menuItem.id), menuName: item.ItemName, qty: Number(item.Quantity) || 1 } : null;
-        })
-        .filter(Boolean);
-      if (deductItems.length > 0) {
-        await fetch(GAS_URL, {
+      backgroundJobs.push(
+        fetch(API_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({ action: 'deductStock', orderNumber: newOrderNumber, tableNo: String(tableNumber), items: deductItems })
-        });
-      }
-    } catch (error) {
-      console.error('Error deducting stock:', error);
+          body: JSON.stringify({ action: 'deductStock', branchId: branchKey, orderNumber: finalNo || newOrderNumber, tableNo: String(tableNumber), items: deductItems })
+        }).catch(error => console.error('Error deducting stock:', error))
+      );
     }
 
-    try {
-      // Print receipt
-      const receiptIP = localStorage.getItem('printer_receipt_ip');
-      if (receiptIP) {
-        fetch(`http://${window.location.hostname}:3001/print`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ip: receiptIP, printerType: 'receipt', orderData: newOrder })
-        }).catch(err => console.error('Silent print failed:', err));
-      }
-    } catch (e) { }
+    await Promise.all(backgroundJobs);
+
   };
 
   // =============================================
@@ -716,8 +1250,10 @@ function App() {
 
     // Optimistic update
     setTableOrders(prev => prev.map(o => {
-      if (String(o.TableNumber) !== String(fromTable) || o.Status === 'paid') return o;
+      if (String(o.TableNumber) !== String(fromTable)) return o;
+      // ย้ายทั้งโต๊ะให้ยกรายการที่ลูกค้าจ่ายเองมาแล้วไปด้วย ส่วนการย้ายบางรายการเลือกได้เฉพาะที่ยังไม่จ่าย
       if (moveAll) return { ...o, TableNumber: toTable };
+      if (o.Status === 'paid') return o;
       const s = tableRowSig(o);
       if (need[s] > 0) { need[s] -= 1; return { ...o, TableNumber: toTable }; }
       return o;
@@ -742,9 +1278,10 @@ function App() {
 
     try {
       const body = moveAll
-        ? { action: 'moveTable', fromTable: String(fromTable), toTable: String(toTable) }
+        ? { action: 'moveTable', branchId: branchKey, fromTable: String(fromTable), toTable: String(toTable) }
         : {
             action: 'moveTableItems',
+            branchId: branchKey,
             fromTable: String(fromTable),
             toTable: String(toTable),
             keys: items.map(it => ({
@@ -754,7 +1291,7 @@ function App() {
               price: Number(it.ItemPrice) || 0
             }))
           };
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -784,12 +1321,13 @@ function App() {
     });
 
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: 'deleteTableOrderItem',
+          branchId: branchKey,
           tableNumber: String(item.TableNumber),
           sessionId: String(item.SessionId),
           itemName: String(item.ItemName)
@@ -803,7 +1341,7 @@ function App() {
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -815,7 +1353,7 @@ function App() {
         })
       });
     } catch (e) {
-      console.error('Failed to update status in GAS:', e);
+      console.error('Failed to update status:', e);
     }
   };
 
@@ -828,82 +1366,213 @@ function App() {
     }, 0);
   };
 
-  // Only block main app with login. Kitchen can be viewed without login, or we can just block everything.
-  // For simplicity, block everything except if the user specifically goes to /kitchen maybe?
-  // Let's just block the entire app until logged in.
-  if (!currentUser) {
-    // If path is /kitchen, allow it? Optional. Let's just require login for everything.
+  // ── ลูกค้าแจ้งโอน (หน้าคีออส) → รอพนักงานหน้าขายกดยืนยัน ──
+  // ส่งออเดอร์ทั้งก้อนไปเก็บไว้ก่อน บิลจริงออกตอนพนักงานกด "ได้รับเงินแล้ว" (respondKioskPayment)
+  const handleKioskPaymentRequest = async (targetTableNo, cartItems, total, paySessionId, diningLabel) => {
+    const cartForServer = cartItems.map(item => {
+      let unitPrice = Number(item.food.price) || 0;
+      if (item.allPopups && item.allPopups.length > 0) {
+        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
+      }
+      return { ...item, food: { ...item.food, price: unitPrice } };
+    });
+    const payload = {
+      action: 'kioskPaymentRequest',
+      branchId: branchKey,
+      tableNumber: String(targetTableNo || ''),
+      dining: diningLabel || '',
+      sessionId: String(paySessionId),
+      items: cartForServer,
+      total: Number(total) || 0,
+      timestamp: getThaiTimeISO()
+    };
+    let lastError = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+        const json = await res.json().catch(() => null);
+        if (json && json.success) return { success: true, status: json.status || 'pending', orderNumber: json.orderNumber || '' };
+        lastError = (json && json.error) || 'ส่งไม่สำเร็จ';
+        if (/Unknown action/i.test(lastError)) break;
+      } catch (e) {
+        lastError = String(e.message || e);
+      }
+      await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+    }
+    return { success: false, error: lastError };
+  };
+
+  const checkKioskPayment = async (paySessionId) => {
+    try {
+      const res = await fetch(`${API_URL}?action=getKioskPayment&id=${encodeURIComponent(paySessionId)}`);
+      const json = await res.json();
+      return json && json.success ? json : null;
+    } catch { return null; }
+  };
+
+  // ออเดอร์จากคีออส — ลูกค้าโอนเงินและสลิปผ่านการตรวจมาแล้ว จึงต้องบันทึกเป็น "บิลที่จ่ายแล้ว"
+  // ไม่ใช่แค่รายการรายโต๊ะ ไม่งั้นยอดไม่เข้ารายงาน/สรุปกะ และพนักงานอาจเก็บเงินซ้ำตอนปิดโต๊ะ
+  // ฝั่งเซิร์ฟเวอร์ (action kioskPaidOrder) ออกเลขบิล + ลง Orders/PaymentSummary/TableOrders + ตัดสต็อก
+  // ให้ครบในคำขอเดียวโดยมีล็อกกันหลายโต๊ะกดจ่ายพร้อมกัน
+  const handleKioskSendOrder = async (targetTableNo, cartItems, total, paymentMethod, paySessionId) => {
+    // sessionId มาจากหน้าคีออส และคงค่าเดิมทุกครั้งที่กดส่งซ้ำ → หลังบ้านใช้กันบิลซ้ำ
+    const sessionId = String(paySessionId || (String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8)));
+    const timestamp = getThaiTimeISO();
+
+    const cartForServer = cartItems.map(item => {
+      let unitPrice = Number(item.food.price) || 0;
+      if (item.allPopups && item.allPopups.length > 0) {
+        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
+      }
+      return {
+        ...item,
+        food: { ...item.food, price: unitPrice }
+      };
+    });
+
+    const payload = {
+      action: 'kioskPaidOrder',
+      branchId: branchKey,
+      tableNumber: String(targetTableNo),
+      sessionId,
+      items: cartForServer,
+      total: Number(total) || 0,
+      paymentMethod: paymentMethod || 'เงินโอน (QR)',
+      timestamp
+    };
+
+    // ลูกค้าจ่ายเงินไปแล้ว ห้ามเงียบหาย — ยิงซ้ำได้ 3 ครั้ง (เน็ตมือถือหลุดง่าย)
+    // ยิงซ้ำแล้วบิลไม่ซ้ำ เพราะฝั่งเซิร์ฟเวอร์เช็ก sessionId เดิมแล้วคืนเลขบิลเดิมกลับมา
+    let lastError = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json().catch(() => null);
+        if (json && json.success) {
+          setTimeout(() => fetchOrdersFromSheet(), 1500);
+          return { success: true, orderNumber: json.orderNumber || '' };
+        }
+        lastError = (json && json.error) || 'บันทึกไม่สำเร็จ';
+      } catch (e) {
+        lastError = String(e.message || e);
+      }
+      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+    }
+    // แบ็กเอนด์ยังเป็นสคริปต์เวอร์ชันเก่า (ยังไม่ได้ deploy ตัวใหม่) — ห้ามทิ้งออเดอร์ที่จ่ายเงินมาแล้ว
+    // ถอยไปใช้วิธีเดิมคือส่งเข้ารายการโต๊ะ พร้อมทำเครื่องหมายว่าชำระแล้วไว้ในรายการให้พนักงานเห็น
+    if (lastError.indexOf('Unknown action') !== -1) {
+      try {
+        const marked = cartForServer.map(item => ({
+          ...item,
+          note: `${item.note ? item.note + ' ' : ''}💳 ชำระผ่าน QR แล้ว (${paymentMethod || ''})`
+        }));
+        await fetch(API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify({
+            action: 'addTableOrder',
+            branchId: branchKey,
+            tableNumber: String(targetTableNo),
+            sessionId,
+            items: marked,
+            timestamp,
+            recordedBy: 'Self-Order'
+          })
+        });
+        setTimeout(() => fetchOrdersFromSheet(), 1500);
+        return { success: true, orderNumber: '', needStaff: true };
+      } catch (e) {
+        lastError = String(e.message || e);
+      }
+    }
+
+    console.error('Error saving kiosk order:', lastError);
+    return { success: false, error: lastError };
+  };
+
+  // มีหลายสาขาแต่เครื่องนี้ยังไม่ได้เลือกสาขา → กลับไปหน้าแรกให้เลือกก่อน
+  const activeBranchList = branches.filter(b => b.isActive !== false);
+  if (!isKioskPath && !isLandingPath && activeBranchList.length > 1 &&
+      !activeBranchList.some(b => String(b.id) === String(deviceBranch))) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!currentUser && !isKioskPath && !isLandingPath) {
     return (
       <LoginScreen
         users={users}
         onLogin={handleLogin}
         lang={lang}
         isOfflineMode={users.length === 0}
-        onRetry={fetchOrdersFromSheet}
+        onRetry={fetchStaticFromSheet}
+        branches={branches}
+        deviceBranch={deviceBranch}
+        onChangeBranch={() => navigate('/')}
+        setupMode={users.length > 0 && !users.some(hasPin)}
+        onSetupLogin={() => handleLogin(DEFAULT_ADMIN)}
+      />
+    );
+  }
+
+  // พนักงาน "ทุกสาขา" ต้องเลือกก่อนว่าจะทำงานที่สาขาไหน — หน้าขายต้องรู้ว่าบิลเป็นของสาขาใด
+  if (currentUser && isAllBranches(currentUser.branch) && !isKioskPath && !isLandingPath) {
+    return (
+      <BranchPicker
+        user={currentUser}
+        branches={branches}
+        lang={lang}
+        onPick={(id) => setCurrentUser(u => ({ ...u, branch: id, allBranches: true }))}
+        onLogout={handleLogout}
       />
     );
   }
 
   return (
     <div className="app-container">
+      {saveAlert && (
+        <div
+          onClick={() => setSaveAlert(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, zIndex: 5000,
+            background: saveAlert.type === 'success' ? '#16a34a' : '#dc2626',
+            color: 'white', padding: '0.85rem 1.25rem',
+            fontSize: '0.9rem', fontWeight: 700, textAlign: 'center', cursor: 'pointer',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)', lineHeight: 1.4
+          }}
+        >
+          {saveAlert.msg}
+          <div style={{ fontSize: '0.72rem', fontWeight: 500, opacity: 0.85, marginTop: '2px' }}>
+            (แตะเพื่อปิด)
+          </div>
+        </div>
+      )}
+      {/* key = เส้นทางปัจจุบัน — เปลี่ยนหน้าแล้วกล่องดักพังรีเซ็ตตัวเอง ไม่ค้างจอ error ข้ามหน้า */}
+      <ChunkErrorBoundary lang={lang} key={location.pathname}>
       <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>{lang === 'th' ? 'กำลังโหลด...' : 'Loading...'}</div>}>
       <Routes>
-        <Route path="/" element={<Navigate to="/table-select" replace />} />
-
-        <Route path="/table-select" element={
-          <div style={{ position: 'relative' }}>
-            <TableSelection
-              setGlobalTableNumber={setTableNumber}
-              lang={lang}
-              tableOrders={tableOrders}
-              shiftOpen={!!currentShift}
-            />
-            {/* Refresh button — โหลดข้อมูลโต๊ะล่าสุด */}
-            <button
-              onClick={refreshTableOrders}
-              disabled={isRefreshing}
-              style={{ position: 'fixed', top: '1.5rem', right: '1.5rem', zIndex: 100, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: '50px', color: 'white', cursor: isRefreshing ? 'wait' : 'pointer', padding: '0.7rem 1.2rem', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.4)', opacity: isRefreshing ? 0.7 : 1 }}
-            >
-              <RefreshCw size={16} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
-              {isRefreshing ? (lang === 'th' ? 'กำลังโหลด...' : 'Loading...') : (lang === 'th' ? 'รีเฟรช' : 'Refresh')}
-            </button>
-            {/* Shift button — admin & cashier only */}
-            {(isAdmin || isCashier) && (
-              <button
-                onClick={() => setShiftModalMode(currentShift ? 'close' : 'open')}
-                style={{ position: 'fixed', bottom: '5.5rem', right: '1.5rem', zIndex: 100, background: currentShift ? 'rgba(239,68,68,0.85)' : 'rgba(34,197,94,0.85)', border: 'none', borderRadius: '50px', color: 'white', cursor: 'pointer', padding: '0.75rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: `0 4px 20px ${currentShift ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)'}` }}
-              >
-                {currentShift ? '🔴 ปิดกะ' : '🟢 เปิดกะ'}
-              </button>
-            )}
-            {/* Liquor storage button */}
-            <button
-              onClick={() => navigate('/liquor')}
-              style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 100, background: '#7c3aed', border: 'none', borderRadius: '50px', color: 'white', cursor: 'pointer', padding: '0.75rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 20px rgba(124,58,237,0.4)' }}
-            >
-              🍾 {lang === 'th' ? 'ฝาก/เบิกเหล้า' : 'Liquor Storage'}
-            </button>
-            {/* Outstanding bills button */}
-            <button
-              onClick={() => navigate('/outstanding')}
-              style={{ position: 'fixed', bottom: '9.5rem', right: '1.5rem', zIndex: 100, background: '#b45309', border: 'none', borderRadius: '50px', color: 'white', cursor: 'pointer', padding: '0.75rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 20px rgba(180,83,9,0.4)' }}
-            >
-              🧾 {lang === 'th' ? 'รายการบิลค้าง' : 'Outstanding Bills'}
-            </button>
-            {/* Admin / backend button — admin & cashier */}
-            {(isAdmin || isCashier) && (
-              <button
-                onClick={() => navigate('/admin')}
-                style={{ position: 'fixed', bottom: '1.5rem', left: '1.5rem', zIndex: 100, background: '#1f2937', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '50px', color: 'white', cursor: 'pointer', padding: '0.75rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.5)' }}
-              >
-                {isCashier ? '💳' : '👑'} {lang === 'th' ? 'หลังบ้าน' : 'Admin'}
-              </button>
-            )}
-          </div>
+        <Route path="/" element={
+          <BranchLanding
+            branches={branches}
+            deviceBranch={deviceBranch}
+            loaded={staticLoaded}
+            lang={lang}
+            onStaff={(id) => { setDeviceBranch(id); navigate('/index'); }}
+            onCustomer={(id) => {
+              setDeviceBranch(id);
+              navigate(`/kiosk?b=${encodeURIComponent(id)}`);
+            }}
+          />
         } />
+        <Route path="/kiosk" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskSendOrder} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} />} />
+        <Route path="/self-order" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskSendOrder} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} />} />
 
         <Route path="/table-orders" element={
-          !tableNumber ? <Navigate to="/table-select" replace /> :
+          !tableNumber ? <Navigate to="/index" replace /> :
             <TableOrderView
               tableNumber={tableNumber}
               tableOrders={tableOrders}
@@ -912,10 +1581,10 @@ function App() {
               settings={posSettings}
               onAddMore={() => navigate('/index')}
               onCheckout={handleOpenCheckoutFromTable}
+              onCloseTable={handleCloseSettledTable}
               onDeleteItem={handleDeleteTableItem}
               onBack={() => {
-                setTableNumber('');
-                navigate('/table-select');
+                navigate('/index');
               }}
               onRefresh={refreshTableOrders}
               isRefreshing={isRefreshing}
@@ -924,140 +1593,59 @@ function App() {
               setCustomerType={setCustomerType}
               customerName={customerName}
               setCustomerName={setCustomerName}
-              customerTypeOptions={customerTypeOptions}
+              onSelectTable={() => setTableNumber('')}
             />
         } />
 
         <Route path="/index" element={
-          !tableNumber ? <Navigate to="/table-select" replace /> :
-            <div className="pos-layout">
-              {/* ─── POS Header ─── */}
-              <header className="pos-header">
-                <div className="pos-header-left">
-                  <img src="/logo.png" alt="Logo" className="pos-logo" />
-                  <div className="pos-header-info">
-                    <span className="pos-restaurant-name">{lang === 'th' ? 'เสน่ห์' : 'Sa-Nae'}</span>
-                    <span className="pos-table-label">{lang === 'th' ? `โต๊ะ ${tableNumber}` : `Table ${tableNumber}`}</span>
-                  </div>
-                </div>
-                <div className="pos-header-right">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginRight: '0.5rem' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>
-                      👤 {lang === 'th' ? 'ประเภทลูกค้า' : 'Customer'}
-                    </span>
-                    <select
-                      value={customerType}
-                      onChange={(e) => setCustomerType(e.target.value)}
-                      style={{
-                        padding: '0.5rem 0.75rem', borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.08)', color: 'white',
-                        border: '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem',
-                        fontWeight: 700, cursor: 'pointer', maxWidth: '160px'
-                      }}
-                    >
-                      {customerTypeOptions.map(t => (
-                        <option key={t || 'normal'} value={t} style={{ color: '#000' }}>
-                          {t || (lang === 'th' ? 'ปกติ' : 'Normal')}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder={lang === 'th' ? 'ชื่อลูกค้า (ถ้ามี)' : 'Customer name (optional)'}
-                      style={{
-                        padding: '0.5rem 0.75rem', borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.08)', color: 'white',
-                        border: '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem',
-                        width: '150px'
-                      }}
-                    />
-                  </div>
-                  <button className="pos-header-btn" onClick={() => { setTableNumber(''); navigate('/table-select'); }}>
-                    🪑 {lang === 'th' ? 'เลือกโต๊ะ' : 'Tables'}
-                  </button>
-                  <button className="pos-header-btn" onClick={() => navigate('/table-orders')}>
-                    🧾 {lang === 'th' ? 'รายการโต๊ะ' : 'Table'}
-                  </button>
-                  <button className="pos-header-btn" onClick={() => setLang(lang === 'th' ? 'en' : 'th')}>
-                    <Globe size={14} /> {lang === 'th' ? 'TH' : 'EN'}
-                  </button>
-                  <button className="pos-cart-btn" onClick={() => setIsCartOpen(true)}>
-                    <ShoppingBag size={20} />
-                    <div className="pos-cart-info">
-                      <span className="pos-cart-count">{cart.reduce((s, i) => s + (i.quantity || 1), 0)} {lang === 'th' ? 'รายการ' : 'items'}</span>
-                      <span className="pos-cart-total">฿{getCartTotal().toLocaleString()}</span>
-                    </div>
-                    {cart.length > 0 && (
-                      <span className="pos-cart-badge">{cart.reduce((s, i) => s + (i.quantity || 1), 0)}</span>
-                    )}
-                  </button>
-                </div>
-              </header>
-
-              <div className="pos-body">
-                {/* ─── Category Sidebar ─── */}
-                <aside className="pos-sidebar">
-                  <div className="pos-sidebar-header">{lang === 'th' ? 'หมวดหมู่' : 'Categories'}</div>
-                  {categories
-                    .filter(cat => liveMenu.some(i => itemInCategory(i, cat.slug)))
-                    .map(cat => {
-                      const count = liveMenu.filter(i => itemInCategory(i, cat.slug)).length;
-                      return (
-                        <button
-                          key={cat.slug}
-                          className={`pos-cat-btn ${activeCategory === cat.slug ? 'active' : ''}`}
-                          onClick={() => setActiveCategory(cat.slug)}
-                        >
-                          <span className="pos-cat-icon">{cat.icon}</span>
-                          <div className="pos-cat-text">
-                            <span className="pos-cat-name">{lang === 'th' ? cat.name : cat.nameEn}</span>
-                            <span className="pos-cat-count">{count} {lang === 'th' ? 'รายการ' : 'items'}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                </aside>
-
-                {/* ─── Food Grid ─── */}
-                <main className="pos-main">
-                  {(() => {
-                    const activeCat = categories.find(c => c.slug === activeCategory);
-                    const filteredItems = liveMenu.filter(i => itemInCategory(i, activeCategory));
-                    return (
-                      <>
-                        <div className="pos-section-header">
-                          <div className="pos-section-title">
-                            <span className="pos-section-icon">{activeCat?.icon}</span>
-                            <h2>{lang === 'th' ? activeCat?.name : activeCat?.nameEn}</h2>
-                          </div>
-                          <span className="pos-item-count">{filteredItems.length} {lang === 'th' ? 'รายการ' : 'items'}</span>
-                        </div>
-                        <div className="pos-food-grid">
-                          {filteredItems.map(item => (
-                            <FoodCard
-                              key={item.id}
-                              food={item}
-                              lang={lang}
-                              displayPrice={Number(resolvePrice(item)?.price) || 0}
-                              onOrderClick={handleOrderClick}
-                              onDecreaseClick={handleDecreaseQuantity}
-                              cartQuantity={cart.filter(c => c.food.id === item.id).reduce((sum, c) => sum + (c.quantity || 1), 0)}
-                            />
-                          ))}
-                          {filteredItems.length === 0 && (
-                            <div className="pos-empty-category">
-                              <span>{lang === 'th' ? 'ไม่มีรายการในหมวดหมู่นี้' : 'No items in this category'}</span>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </main>
-              </div>
-            </div>
+          <PosSalesScreen
+              lang={lang}
+              setLang={setLang}
+              tableNumber={tableNumber}
+              onSelectTable={setTableNumber}
+              tableOrders={tableOrders}
+              liveMenu={liveMenu}
+              categories={categories}
+              itemInCategory={itemInCategory}
+              activeCategory={activeCategory}
+              setActiveCategory={setActiveCategory}
+              cart={cart}
+              onOrderClick={handleOrderClick}
+              onDecreaseQuantity={handleDecreaseQuantity}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveFromCart={handleRemoveFromCart}
+              onUpdateNote={handleUpdateCartNote}
+              onClearCart={() => setCart([])}
+              onSendOrder={handleSendOrderToTable}
+              onCheckout={handleOpenCheckoutFromTable}
+              onDeleteTableItem={handleDeleteTableItem}
+              onPrintKitchen={handlePrintKitchenAgain}
+              onPrintPreBill={handlePrintPreBill}
+              onCloseTable={handleCloseSettledTable}
+              discounts={posDiscounts}
+              resolvePrice={resolvePrice}
+              hasPriceForCustomerType={hasPriceForCustomerType}
+              customerType={customerType}
+              setCustomerType={setCustomerType}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              settings={posSettings}
+              isAdmin={isAdmin}
+              isCashier={isCashier}
+              branch={branch}
+              currentUser={currentUser}
+              onLogout={handleLogout}
+              onRefresh={refreshTableOrders}
+              isRefreshing={isRefreshing}
+              onOpenBill={() => navigate('/table-orders')}
+              onOpenAdmin={() => navigate('/admin')}
+              onOpenWaste={() => navigate('/waste')}
+              onOpenPrep={() => navigate('/prep')}
+              onOpenStockCount={() => navigate('/stock-count')}
+              onOpenSummary={(mode) => { setSalesSummaryMode(mode); setShowSalesSummaryModal(true); }}
+              onOpenTaxInvoice={() => setShowTaxInvoicePage(true)}
+            onOpenKiosk={() => window.open(`/kiosk?table=${tableNumber}`, '_blank')}
+          />
         } />
 
         <Route path="/kitchen" element={
@@ -1065,37 +1653,83 @@ function App() {
             orders={orders.filter(o => o.status && o.status.toLowerCase() === 'pending')}
             onUpdateOrderStatus={handleUpdateOrderStatus}
             onNewOrder={() => navigate('/index')}
+            allMenu={allMenu.length > 0 ? allMenu : liveMenu}
           />
         } />
 
         <Route path="/outstanding" element={
-          <OutstandingBills lang={lang} onBack={() => navigate('/table-select')} />
+          <OutstandingBills lang={lang} onBack={() => navigate('/index')} />
         } />
 
         <Route path="/liquor" element={
           <LiquorStorage
             currentUser={currentUser}
             lang={lang}
-            onBack={() => navigate('/table-select')}
+            onBack={() => navigate('/index')}
             menu={allMenu.length > 0 ? allMenu : liveMenu}
             categories={allCategories.length > 0 ? allCategories : categories}
           />
         } />
 
-        <Route path="/admin" element={(isAdmin || isCashier) ? <AdminLayout lang={lang} setLang={setLang} onLogout={handleLogout} isCashier={isCashier} /> : <Navigate to="/table-select" replace />}>
+        <Route path="/waste" element={
+          <WasteRecord
+            key="waste"
+            mode="waste"
+            currentUser={currentUser}
+            lang={lang}
+            branch={branch}
+            onBack={() => navigate('/index')}
+            menu={allMenu.length > 0 ? allMenu : liveMenu}
+            categories={allCategories.length > 0 ? allCategories : categories}
+          />
+        } />
+
+        <Route path="/stock-count" element={
+          <WasteRecord
+            key="count"
+            mode="count"
+            currentUser={currentUser}
+            lang={lang}
+            branch={branch}
+            onBack={() => navigate('/index')}
+            menu={allMenu.length > 0 ? allMenu : liveMenu}
+            categories={allCategories.length > 0 ? allCategories : categories}
+          />
+        } />
+
+        <Route path="/prep" element={
+          <WasteRecord
+            key="prep"
+            mode="prep"
+            currentUser={currentUser}
+            lang={lang}
+            branch={branch}
+            onBack={() => navigate('/index')}
+            menu={allMenu.length > 0 ? allMenu : liveMenu}
+            categories={allCategories.length > 0 ? allCategories : categories}
+          />
+        } />
+
+        <Route path="/admin" element={(isAdmin || isCashier) ? <AdminLayout lang={lang} setLang={setLang} onLogout={handleLogout} isCashier={isCashier} /> : <Navigate to="/index" replace />}>
           <Route index element={<Dashboard />} />
           <Route path="menu" element={<ManageMenu />} />
           <Route path="categories" element={<ManageCategories />} />
+          <Route path="tables" element={<ManageTables branchId={tablesBranch} branches={branches} />} />
           <Route path="users" element={isAdmin ? <ManageUsers /> : <Navigate to="/admin" replace />} />
+          <Route path="branches" element={isAdmin ? <ManageBranches /> : <Navigate to="/admin" replace />} />
+          <Route path="branch-menu" element={isAdmin ? <ManageBranchMenu branchId={tablesBranch} branches={branches} /> : <Navigate to="/admin" replace />} />
           <Route path="promotions" element={<ManagePromotions />} />
-          <Route path="printers" element={isAdmin ? <ManagePrinters /> : <Navigate to="/admin" replace />} />
-          <Route path="settings" element={isAdmin ? <ManageSettings /> : <Navigate to="/admin" replace />} />
+          <Route path="printers" element={isAdmin ? <ManagePrinters branchId={tablesBranch} branches={branches} /> : <Navigate to="/admin" replace />} />
+          <Route path="settings" element={isAdmin ? <ManageSettings users={users} /> : <Navigate to="/admin" replace />} />
           <Route path="bom" element={isAdmin ? <ManageBOM /> : <Navigate to="/admin" replace />} />
-          <Route path="stock" element={<ManageStock />} />
-          <Route path="reports" element={isAdmin ? <Reports /> : <Navigate to="/admin" replace />} />
+          <Route path="stock" element={<ManageStock branchId={tablesBranch} branches={branches} canPickBranch={isAdmin} />} />
+          <Route path="reports" element={(isAdmin || isCashier) ? <Reports allMenu={allMenu} isAdmin={isAdmin} branch={branch} users={users} userName={currentUser?.username || ''} /> : <Navigate to="/admin" replace />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/index" replace />} />
       </Routes>
       </Suspense>
+      </ChunkErrorBoundary>
 
       {selectedFood && (
         <OrderWizardModal
@@ -1104,51 +1738,72 @@ function App() {
           liveMenu={allMenu.length > 0 ? allMenu : liveMenu}
           categories={allCategories.length > 0 ? allCategories : categories}
           basePrice={Number(resolvePrice(selectedFood)?.price) || 0}
+          askDining={askDining}
+          hasPriceForCustomerType={hasPriceForCustomerType}
+          noteOptions={posNoteConfig.options}
+          allowCustomNote={posNoteConfig.allowCustom}
           onClose={() => setSelectedFood(null)}
           onConfirm={handleConfirmOrder}
         />
       )}
 
-      {isCartOpen && (
-        <CartModal
-          cart={cart}
-          lang={lang}
-          onClose={() => setIsCartOpen(false)}
-          onRemove={handleRemoveFromCart}
-          onUpdateQuantity={handleUpdateQuantity}
-          onUpdateNote={handleUpdateCartNote}
-          onCheckout={handleSendOrderToTable}
-          settings={posSettings}
-        />
+      {/* ลูกค้าสแกน QR แจ้งโอน → เด้งให้พนักงานสาขานี้ยืนยันยอด (ทุกหน้าของพนักงาน ยกเว้นหน้าลูกค้า/หน้าแรก) */}
+      {currentUser && !isKioskPath && !isLandingPath && (
+        <Suspense fallback={null}>
+          <KioskPaymentAlerts
+            branchId={branchKey}
+            userName={currentUser?.username || ''}
+            allMenu={allMenu.length > 0 ? allMenu : liveMenu}
+            onApproved={() => { refreshTableOrders(); fetchOrdersFromSheet(); }}
+          />
+        </Suspense>
       )}
 
-      {shiftModalMode && (
-        <ShiftModal
-          mode={shiftModalMode}
-          currentShift={currentShift}
-          shiftSales={shiftSales}
-          currentUser={currentUser}
-          pendingTables={shiftModalMode === 'close' ? getPendingTables() : []}
-          onConfirmOpen={handleOpenShift}
-          onConfirmClose={handleCloseShift}
-          onClose={() => setShiftModalMode(null)}
-        />
+      {showTaxInvoicePage && (
+        <Suspense fallback={null}>
+          <TaxInvoicePage
+            isAdmin={isAdmin}
+            userName={currentUser?.username || ''}
+            branchId={branchKey}
+            onClose={() => setShowTaxInvoicePage(false)}
+          />
+        </Suspense>
+      )}
+
+      {showSalesSummaryModal && (
+        <Suspense fallback={null}>
+          <SalesSummaryModal
+            lang={lang}
+            initialMode={salesSummaryMode}
+            allMenu={allMenu}
+            categories={allCategories.length > 0 ? allCategories : categories}
+            isAdmin={isAdmin}
+            branch={branch}
+            users={users}
+            userName={currentUser?.username || ''}
+            onClose={() => setShowSalesSummaryModal(false)}
+          />
+        </Suspense>
       )}
 
       {isCheckoutOpen && (
-        <CheckoutModal
-          tableOrderItems={checkoutItems}
-          total={checkoutTotal}
-          lang={lang}
-          orderNumber={`#${String(maxOrderNum + 1).padStart(3, '0')}`}
-          onClose={() => setIsCheckoutOpen(false)}
-          onComplete={handleCheckoutComplete}
-          settings={posSettings}
-          discounts={posDiscounts}
-          users={users}
-          currentUser={currentUser}
-          tableNo={tableNumber}
-        />
+        <Suspense fallback={null}>
+          <CheckoutModal
+            tableOrderItems={checkoutItems}
+            total={checkoutTotal}
+            lang={lang}
+            orderNumber={`${billPrefix}-#${String((branchMaxMap[branch] || 0) + 1).padStart(3, '0')}`}
+            onClose={() => setIsCheckoutOpen(false)}
+            onComplete={handleCheckoutComplete}
+            settings={checkoutSettings}
+            discounts={posDiscounts}
+            categories={allCategories.length > 0 ? allCategories : categories}
+            initialDiscount={checkoutDiscount}
+            users={users}
+            currentUser={currentUser}
+            tableNo={tableNumber}
+          />
+        </Suspense>
       )}
 
       {/* แจ้งเตือนคำขออนุมัติ QR — เฉพาะแอดมิน/แคชเชียร์ */}

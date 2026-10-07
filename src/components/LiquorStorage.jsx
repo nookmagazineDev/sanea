@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Wine, Plus, ArrowDownCircle, ArrowUpCircle, RefreshCw, X, Save, ChevronLeft, Clock } from 'lucide-react';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../utils/api';
 
 const EMPTY_FORM = { customerName: '', phone: '', productName: '', category: 'เหล้า', qty: '', unit: '%', note: '' };
 const LIQUOR_UNITS = ['%', 'ml', 'ขวด', 'ส่วน'];
@@ -22,7 +21,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch(`${GAS_URL}?action=getLiquorRecords`);
+      const res  = await fetch(`${API_URL}?action=getLiquorRecords`);
       const data = await res.json();
       if (data.success) setRecords(data.records || []);
     } catch (e) {}
@@ -105,7 +104,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
     setSaving(true);
     setSaveMsg('');
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method:  'POST',
         mode:    'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -152,7 +151,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
     setSaving(true);
     setSaveMsg('');
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method:  'POST',
         mode:    'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -256,7 +255,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 800, fontSize: '1rem', color: 'white' }}>{item.customerName}</div>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20, background: item.category === 'เบียร์' ? 'rgba(234,179,8,0.15)' : 'rgba(168,85,247,0.15)', color: item.category === 'เบียร์' ? '#eab308' : '#a78bfa', border: `1px solid ${item.category === 'เบียร์' ? 'rgba(234,179,8,0.3)' : 'rgba(168,85,247,0.3)'}` }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20, background: item.category === 'เบียร์' ? 'rgba(234,179,8,0.15)' : 'rgba(168,85,247,0.15)', color: item.category === 'เบียร์' ? '#d84518' : '#a78bfa', border: `1px solid ${item.category === 'เบียร์' ? 'rgba(234,179,8,0.3)' : 'rgba(168,85,247,0.3)'}` }}>
                         {item.category === 'เบียร์' ? '🍺 เบียร์' : '🥃 เหล้า'}
                       </span>
                     </div>
@@ -314,7 +313,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                       <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>{r.phone || '—'}</td>
                       <td style={{ padding: '0.7rem 1rem', color: '#a78bfa' }}>
                         {r.productName}
-                        {r.category && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: r.category === 'เบียร์' ? '#eab308' : 'rgba(255,255,255,0.4)' }}>({r.category})</span>}
+                        {r.category && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: r.category === 'เบียร์' ? '#d84518' : 'rgba(255,255,255,0.4)' }}>({r.category})</span>}
                       </td>
                       <td style={{ padding: '0.7rem 1rem', fontWeight: 700, textAlign: 'center' }}>{r.qty} {r.unit || ''}</td>
                       <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>{r.note || '—'}</td>
@@ -435,7 +434,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                 <div style={{ display: 'flex', gap: '0.6rem' }}>
                   {[
                     { key: 'เหล้า', label: '🥃 เหล้า', color: '#a78bfa', bg: 'rgba(168,85,247,0.18)', bd: 'rgba(168,85,247,0.6)' },
-                    { key: 'เบียร์', label: '🍺 เบียร์', color: '#eab308', bg: 'rgba(234,179,8,0.18)', bd: 'rgba(234,179,8,0.6)' },
+                    { key: 'เบียร์', label: '🍺 เบียร์', color: '#d84518', bg: 'rgba(234,179,8,0.18)', bd: 'rgba(234,179,8,0.6)' },
                   ].map(c => {
                     const active = form.category === c.key;
                     return (

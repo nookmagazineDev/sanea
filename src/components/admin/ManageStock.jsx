@@ -1,19 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Package, AlertTriangle, RefreshCw, Plus, X, Save, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../../utils/api';
 
 const STATUS_CONFIG = {
   OUT: { label: '🔴 หมดแล้ว!',   bg: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.4)',   text: '#ef4444' },
-  LOW: { label: '🟡 ใกล้หมด',    bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.4)',   text: '#eab308' },
+  LOW: { label: '🟡 ใกล้หมด',    bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.4)',   text: '#d84518' },
   OK:  { label: '🟢 ปกติ',        bg: 'rgba(34,197,94,0.10)',   border: 'rgba(34,197,94,0.3)',   text: '#22c55e' },
 };
 
 const DEFAULT_STOCK_IN = { ingId: '', qty: '', pricePerUnit: '', note: '' };
 
-const ManageStock = () => {
-  const { lang, canSeeCost = true } = useOutletContext();
+// ดูรวมทุกสาขา (อ่านอย่างเดียว — รับของเข้าต้องเลือกสาขา)
+const ALL = '__all__';
+
+// branchId = สาขาที่เครื่องนี้ทำงานอยู่ / canPickBranch = แอดมินเลือกดูสาขาอื่นหรือรวมทุกสาขาได้
+const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch = false }) => {
+  const { canSeeCost = true } = useOutletContext();
+  const activeBranches = branches.filter(b => b.isActive !== false);
+  const [viewBranch, setViewBranch] = useState(homeBranch);
+  useEffect(() => { if (!viewBranch && homeBranch) setViewBranch(homeBranch); }, [homeBranch, viewBranch]);
+  const viewingAll = viewBranch === ALL;
+  const branchLabel = viewingAll
+    ? 'รวมทุกสาขา'
+    : ((activeBranches.find(b => String(b.id) === String(viewBranch)) || {}).name || viewBranch);
   const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +40,8 @@ const ManageStock = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${GAS_URL}?action=getStock`);
+      const qs = viewingAll || !viewBranch ? '' : `&branch=${encodeURIComponent(viewBranch)}`;
+      const res = await fetch(`${API_URL}?action=getStock${qs}`);
       const data = await res.json();
       if (data.success) {
         setStock(data.stock || []);
@@ -42,7 +53,7 @@ const ManageStock = () => {
       setError('ติดต่อ GAS ไม่ได้ — กรุณาตรวจสอบการเชื่อมต่อ หรือเพิ่ม action=getStock ในไฟล์ GAS');
     }
     setLoading(false);
-  }, []);
+  }, [viewBranch, viewingAll]);
 
   useEffect(() => { fetchStock(); }, [fetchStock]);
 
@@ -80,12 +91,12 @@ const ManageStock = () => {
     setSaving(true);
     setSaveMsg('');
     try {
-      await fetch(GAS_URL, {
+      const res = await fetch(API_URL, {
         method: 'POST',
-        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({
           action: 'stockIn',
+          branchId: viewBranch,
           items: valid.map(r => ({
             ingId: r.ingId,
             qty: Number(r.qty),
@@ -95,11 +106,13 @@ const ManageStock = () => {
           }))
         })
       });
-      setSaveMsg('✅ บันทึกรับวัตถุดิบสำเร็จ');
+      const json = await res.json().catch(() => null);
+      if (!json || json.success !== true) throw new Error((json && json.error) || 'เซิร์ฟเวอร์ไม่ตอบ success');
+      setSaveMsg(`✅ บันทึกรับวัตถุดิบเข้าสาขา ${branchLabel} สำเร็จ`);
       setStockInForm([DEFAULT_STOCK_IN]);
       setTimeout(() => { setShowStockIn(false); setSaveMsg(''); fetchStock(); }, 1800);
     } catch (e) {
-      setSaveMsg('❌ บันทึกไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ GAS');
+      setSaveMsg(`❌ บันทึกไม่สำเร็จ: ${e.message || e}`);
     }
     setSaving(false);
   };
@@ -110,16 +123,23 @@ const ManageStock = () => {
       <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Package size={26} /> สต็อกวัตถุดิบ
+            <Package size={26} color="var(--accent-hover)" /> สต็อกวัตถุดิบ
           </h1>
           <p style={{ margin: 0 }}>
-            ติดตามวัตถุดิบคงเหลือ — ตัดอัตโนมัติเมื่อมีออเดอร์
+            ติดตามวัตถุดิบคงเหลือ — ตัดอัตโนมัติเมื่อมีออเดอร์ · <b>{branchLabel || '—'}</b>
             {lastUpdated && <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginLeft: '0.75rem' }}>
               อัปเดต {lastUpdated.toLocaleTimeString('th-TH')}
             </span>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {canPickBranch && activeBranches.length > 1 && (
+            <select value={viewBranch} onChange={e => setViewBranch(e.target.value)}
+              style={{ padding: '0.5rem 0.75rem', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', fontFamily: 'inherit', fontWeight: 700, background: '#fff' }}>
+              {activeBranches.map(b => <option key={b.id} value={b.id}>🏠 {b.name || b.id}</option>)}
+              <option value={ALL}>🌐 รวมทุกสาขา</option>
+            </select>
+          )}
           <a
             href="https://docs.google.com/spreadsheets/"
             target="_blank" rel="noopener noreferrer"
@@ -132,8 +152,9 @@ const ManageStock = () => {
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.55rem 1rem' }}>
             <RefreshCw size={15} className={loading ? 'spin' : ''} /> รีเฟรช
           </button>
-          <button className="admin-btn" onClick={() => setShowStockIn(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button className="admin-btn" onClick={() => setShowStockIn(true)} disabled={viewingAll}
+            title={viewingAll ? 'เลือกสาขาก่อน — รับของเข้าต้องระบุว่าเข้าสาขาไหน' : ''}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', opacity: viewingAll ? 0.5 : 1 }}>
             <Plus size={18} /> รับวัตถุดิบเข้า
           </button>
         </div>
@@ -147,8 +168,8 @@ const ManageStock = () => {
             return (
               <div key={item.id} style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: '12px', padding: '1rem 1.25rem' }}>
                 <div style={{ fontWeight: '700', color: cfg.text, fontSize: '0.82rem', marginBottom: '0.25rem' }}>{cfg.label}</div>
-                <div style={{ color: 'white', fontWeight: '600' }}>{item.name}</div>
-                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.82rem' }}>
+                <div style={{ color: 'var(--text-main)', fontWeight: '600' }}>{item.name}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                   คงเหลือ <strong style={{ color: cfg.text }}>{item.current.toLocaleString()}</strong> {item.unit}
                   {item.minimum > 0 && ` (ขั้นต่ำ ${item.minimum.toLocaleString()})`}
                 </div>
@@ -176,9 +197,9 @@ const ManageStock = () => {
         ].map(tab => (
           <button key={tab.key} onClick={() => setFilterStatus(tab.key)} style={{
             padding: '0.4rem 0.9rem', borderRadius: '20px', fontSize: '0.83rem', cursor: 'pointer',
-            border: filterStatus === tab.key ? '1.5px solid var(--accent)' : '1px solid rgba(255,255,255,0.15)',
-            background: filterStatus === tab.key ? 'rgba(185,28,28,0.25)' : 'rgba(255,255,255,0.05)',
-            color: filterStatus === tab.key ? 'white' : 'rgba(255,255,255,0.65)',
+            border: filterStatus === tab.key ? '1.5px solid var(--accent)' : '1px solid rgba(0,0,0,0.08)',
+            background: filterStatus === tab.key ? 'rgba(234,179,8,0.18)' : 'rgba(0,0,0,0.02)',
+            color: filterStatus === tab.key ? 'var(--text-main)' : 'var(--text-muted)',
             fontWeight: filterStatus === tab.key ? '700' : '400',
           }}>{tab.label}</button>
         ))}
@@ -228,7 +249,7 @@ const ManageStock = () => {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((item, idx) => {
+                {sorted.map((item) => {
                   const cfg = STATUS_CONFIG[item.status];
                   const stockValue = item.current * item.price;
                   return (
@@ -239,7 +260,7 @@ const ManageStock = () => {
                         {item.nameEn && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.nameEn}</div>}
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>{item.unit}</td>
-                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.status === 'OUT' ? '#ef4444' : item.status === 'LOW' ? '#eab308' : 'white' }}>
+                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.status === 'OUT' ? '#ef4444' : item.status === 'LOW' ? '#d84518' : 'var(--text-main)' }}>
                         {item.current.toLocaleString('th-TH', { maximumFractionDigits: 1 })}
                       </td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
@@ -273,11 +294,11 @@ const ManageStock = () => {
       {stock.length > 0 && (
         <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
           {[
-            { label: 'วัตถุดิบทั้งหมด', val: `${stock.length} รายการ`, color: 'white' },
+            { label: 'วัตถุดิบทั้งหมด', val: `${stock.length} รายการ`, color: 'var(--text-main)' },
             { label: 'ใกล้หมด/หมดแล้ว', val: `${alertItems.length} รายการ`, color: alertItems.length > 0 ? '#ef4444' : '#22c55e' },
             ...(canSeeCost ? [{ label: 'มูลค่าสต็อครวม', val: `฿${stock.reduce((s, i) => s + i.current * i.price, 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}`, color: '#60a5fa' }] : []),
           ].map(card => (
-            <div key={card.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '0.75rem 1.25rem', minWidth: '160px' }}>
+            <div key={card.label} style={{ background: 'var(--bg-card)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '10px', padding: '0.75rem 1.25rem', minWidth: '160px' }}>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{card.label}</div>
               <div style={{ fontWeight: '800', fontSize: '1.1rem', color: card.color }}>{card.val}</div>
             </div>
@@ -293,7 +314,7 @@ const ManageStock = () => {
               <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
                 <Plus size={20} /> รับวัตถุดิบเข้าสต็อก
               </h2>
-              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }} onClick={() => setShowStockIn(false)}>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setShowStockIn(false)}>
                 <X size={24} />
               </button>
             </div>
@@ -367,7 +388,7 @@ const ManageStock = () => {
               })}
             </div>
 
-            <button onClick={addStockInRow} style={{ background: 'rgba(255,255,255,0.06)', border: '1px dashed rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', width: '100%', marginBottom: '1.25rem', fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+            <button onClick={addStockInRow} style={{ background: 'rgba(0,0,0,0.02)', border: '1px dashed rgba(0,0,0,0.15)', color: 'var(--text-main)', borderRadius: '8px', padding: '0.5rem 1rem', cursor: 'pointer', width: '100%', marginBottom: '1.25rem', fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
               <Plus size={15} /> เพิ่มรายการ
             </button>
 
@@ -378,10 +399,10 @@ const ManageStock = () => {
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setShowStockIn(false)} style={{ flex: 1, padding: '0.85rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button onClick={() => setShowStockIn(false)} style={{ flex: 1, padding: '0.85rem', background: 'transparent', border: '1px solid rgba(0,0,0,0.15)', color: 'var(--text-main)', borderRadius: '10px', cursor: 'pointer', fontFamily: 'inherit' }}>
                 ยกเลิก
               </button>
-              <button onClick={handleStockInSave} disabled={saving} style={{ flex: 2, padding: '0.85rem', background: saving ? '#555' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '1rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <button onClick={handleStockInSave} disabled={saving} style={{ flex: 2, padding: '0.85rem', background: saving ? 'rgba(0,0,0,0.05)' : 'var(--accent)', color: saving ? 'var(--text-muted)' : 'black', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '1rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                 <Save size={18} /> {saving ? 'กำลังบันทึก...' : 'บันทึกรับวัตถุดิบ'}
               </button>
             </div>
