@@ -9,16 +9,16 @@
 
 .login-box {
   background: var(--bg-card);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 20px;
   padding: 2.5rem;
   width: 100%;
   max-width: 480px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
 }
 
 .login-title {
-  color: white;
+  color: var(--text-main);
   font-size: 1.8rem;
   font-weight: 800;
   margin: 0 0 0.5rem 0;
@@ -39,11 +39,11 @@
 }
 
 .user-select-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 16px;
   padding: 1.5rem 1rem;
-  color: white;
+  color: var(--text-main);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -55,20 +55,20 @@
 }
 
 .user-select-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.04);
   transform: translateY(-2px);
 }
 
 .user-avatar {
-  background: rgba(249, 115, 22, 0.15);
-  color: var(--accent);
+  background: rgba(250, 204, 21, 0.15);
+  color: var(--accent-hover);
   width: 64px;
   height: 64px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(249, 115, 22, 0.3);
+  border: 2px solid rgba(250, 204, 21, 0.3);
 }
 
 .pin-container {
@@ -90,9 +90,9 @@
 .back-btn {
   position: absolute;
   left: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.05);
   border: none;
-  color: white;
+  color: var(--text-main);
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -106,8 +106,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(249, 115, 22, 0.1);
-  color: var(--accent);
+  background: rgba(250, 204, 21, 0.15);
+  color: var(--text-main);
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-weight: 700;
@@ -123,14 +123,14 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.05);
+  border: 2px solid rgba(0, 0, 0, 0.15);
   transition: all 0.2s;
 }
 
 .pin-dot.filled {
   background: var(--accent);
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
   transform: scale(1.1);
 }
 
@@ -153,15 +153,15 @@
 }
 
 .numpad-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 50%;
   width: 70px;
   height: 70px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--text-main);
   font-size: 1.5rem;
   font-weight: 600;
   cursor: pointer;
@@ -170,7 +170,7 @@
 }
 
 .numpad-btn:active {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.06);
   transform: scale(0.95);
 }
 
@@ -186,7 +186,7 @@
 
 .default-admin-btn {
   background: var(--accent);
-  color: white;
+  color: black;
   border: none;
   padding: 0.8rem 1.5rem;
   border-radius: 12px;

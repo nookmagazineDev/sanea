@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Save, X, Users, Eye, EyeOff, ShieldCheck, ShieldOff, CheckCircle } from 'lucide-react';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL } from '../../utils/api';
+import { ALL_BRANCHES, branchLabel } from '../../utils/branches';
 
 const AVATAR_COLORS = ['#7c3aed','#ea580c','#0891b2','#16a34a','#dc2626','#d97706','#7c3aed','#db2777'];
 
@@ -10,23 +9,42 @@ const avatarColor = (name) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_
 
 const inp = {
   width: '100%', padding: '0.65rem 0.85rem',
-  background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)',
-  borderRadius: 10, color: 'white', fontSize: '0.95rem', fontFamily: 'inherit',
+  background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)',
+  borderRadius: 10, color: 'var(--text-main)', fontSize: '0.95rem', fontFamily: 'inherit',
   outline: 'none', boxSizing: 'border-box',
 };
 
-const EMPTY_USER = { id: '', username: '', pin: '', canCheckout: true, isAdmin: false, isCashier: false };
+const EMPTY_USER = { id: '', username: '', pin: '', branch: '', canCheckout: true, isAdmin: false, isCashier: false };
 
 const isTrue = (v) => v === true || v === 'TRUE';
 const userRole = (u) => isTrue(u.isAdmin) ? 'admin' : (isTrue(u.isCashier) ? 'cashier' : 'staff');
 const ROLE_OPTIONS = [
   { key: 'admin',   label: '👑 แอดมิน',     color: '#f97316', bg: 'rgba(249,115,22,0.18)', bd: 'rgba(249,115,22,0.6)' },
   { key: 'cashier', label: '💳 แคชเชียร์',   color: '#38bdf8', bg: 'rgba(56,189,248,0.18)', bd: 'rgba(56,189,248,0.6)' },
-  { key: 'staff',   label: 'พนักงานทั่วไป', color: '#9ca3af', bg: 'rgba(255,255,255,0.06)', bd: 'rgba(255,255,255,0.2)' },
+  { key: 'staff',   label: 'พนักงานทั่วไป', color: '#475569', bg: 'rgba(100,116,139,0.16)', bd: 'rgba(100,116,139,0.55)' },
 ];
 
+// ช่องสาขา: ถ้าตั้งสาขาไว้ในหน้าตั้งค่าสาขาแล้ว ให้เลือกจากรายการ (กันพิมพ์รหัสผิดแล้วบิลไม่เข้าสาขา)
+// ยังไม่มีสาขาในระบบ → พิมพ์เองได้แบบเดิม
+function BranchField({ branches, value, onChange, autoFocus }) {
+  if (branches.length === 0) {
+    return <input style={inp} value={value || ''} onChange={e => onChange(e.target.value)} placeholder="เช่น xum, xcm" autoFocus={autoFocus} />;
+  }
+  const current = String(value || '').trim();
+  const known = branches.some(b => String(b.id) === current);
+  return (
+    <select style={inp} value={current} onChange={e => onChange(e.target.value)} autoFocus={autoFocus}>
+      <option value="">— เลือกสาขา —</option>
+      <option value={ALL_BRANCHES}>🌐 ทุกสาขา (เลือกสาขาตอนล็อกอิน)</option>
+      {current && !known && current !== ALL_BRANCHES && <option value={current}>{current} (ไม่มีในรายการสาขา)</option>}
+      {branches.filter(b => b.isActive !== false || String(b.id) === current).map(b => (
+        <option key={b.id} value={b.id}>{b.name && b.name !== b.id ? `${b.name} (${b.id})` : b.id}</option>
+      ))}
+    </select>
+  );
+}
+
 export default function ManageUsers() {
-  const { lang } = useOutletContext();
   const [users,     setUsers]     = useState([]);
   const [loading,   setLoading]   = useState(true);
   const [saving,    setSaving]    = useState(false);
@@ -36,14 +54,32 @@ export default function ManageUsers() {
   const [form,      setForm]      = useState(EMPTY_USER);
   const [showPin,   setShowPin]   = useState({});     // { [id]: bool }
   const [dirty,     setDirty]     = useState(false);
+  const [branches,  setBranches]  = useState([]);
+  const [loadError, setLoadError] = useState('');
 
+  // รายชื่อพร้อมรหัสดึงจากเซิร์ฟเวอร์ (getUsers — เฉพาะแอดมินสำนักงานใหญ่)
+  // รายชื่อที่หน้าร้านเก็บไว้ไม่มีรหัสแล้ว ห้ามเอามาบันทึกทับ ไม่งั้นรหัสทุกคนหาย
   useEffect(() => {
-    const raw = localStorage.getItem('gas_all_data');
-    if (raw) {
-      try { const d = JSON.parse(raw); if (d.users) setUsers(d.users); }
-      catch (e) {}
-    }
-    setLoading(false);
+    (async () => {
+      let cached = {};
+      try { cached = JSON.parse(localStorage.getItem('gas_all_data') || '{}') || {}; } catch {}
+      if (Array.isArray(cached.branches)) setBranches(cached.branches);
+      try {
+        const res = await fetch(`${API_URL}?action=getUsers`);
+        const json = await res.json();
+        if (json && json.success === true && Array.isArray(json.users)) {
+          setUsers(json.users);
+        } else if (json && json.error === 'Unknown GET action') {
+          // API รุ่นเก่ายังส่งรหัสมากับรายชื่อ ใช้ของในเครื่องได้
+          if (Array.isArray(cached.users)) setUsers(cached.users);
+        } else {
+          setLoadError((json && json.error) || 'โหลดรายชื่อพนักงานไม่สำเร็จ');
+        }
+      } catch (e) {
+        setLoadError(`โหลดรายชื่อพนักงานไม่สำเร็จ: ${e.message || e}`);
+      }
+      setLoading(false);
+    })();
   }, []);
 
   const markDirty = () => setDirty(true);
@@ -71,44 +107,54 @@ export default function ManageUsers() {
 
   const handleModalSave = () => {
     if (!form.username.trim()) return;
-    if (!form.pin || form.pin.length !== 4) { alert('กรุณากรอก PIN 4 หลัก'); return; }
+    if (!form.branch.trim()) { alert('กรุณากรอกชื่อสาขา'); return; }
+    if (!form.pin) { alert('กรุณากรอกรหัสผ่าน'); return; }
     setUsers(prev => [...prev, { ...form }]);
     setShowModal(false);
     markDirty();
   };
 
   const handleSave = async () => {
+    // กันพลาด: คนที่มีรหัสอยู่แล้วแต่รายการนี้ไม่มีรหัสมาด้วย = โหลดมาไม่ครบ บันทึกไปรหัสจะหาย
+    if (users.some(u => u.hasPin === true && (u.pin === undefined || u.pin === ''))) {
+      setSaveMsg('❌ รายชื่อโหลดมาไม่ครบ (ไม่มีรหัส) — รีเฟรชหน้าแล้วลองใหม่');
+      return;
+    }
     setSaving(true); setSaveMsg('');
     try {
-      const clean = users.map(({ isNew, ...u }) => u);
-      await fetch(GAS_URL, {
-        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' },
+      const clean = users.map(({ isNew, hasPin, ...u }) => u);
+      const res = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ action: 'saveUsers', users: clean }),
       });
+      const json = await res.json().catch(() => null);
+      if (!json || json.success !== true) throw new Error((json && json.error) || 'เซิร์ฟเวอร์ไม่ตอบ success');
+      // หน้าร้านเก็บรายชื่อไว้ใช้โชว์ปุ่มล็อกอิน — ไม่เก็บรหัสไว้ในเครื่อง
+      const publicList = clean.map(({ pin, ...u }) => ({ ...u, hasPin: String(pin ?? '') !== '' }));
       const raw = localStorage.getItem('gas_all_data');
-      if (raw) { const d = JSON.parse(raw); d.users = clean; localStorage.setItem('gas_all_data', JSON.stringify(d)); }
-      localStorage.setItem('cached_users', JSON.stringify(clean));
+      if (raw) { const d = JSON.parse(raw); d.users = publicList; localStorage.setItem('gas_all_data', JSON.stringify(d)); }
+      localStorage.setItem('cached_users', JSON.stringify(publicList));
       setEditId(null); setSaveMsg('✅ บันทึกสำเร็จ'); setDirty(false);
       setTimeout(() => setSaveMsg(''), 3000);
     } catch (e) {
-      setSaveMsg('❌ บันทึกไม่สำเร็จ');
+      setSaveMsg(`❌ บันทึกไม่สำเร็จ: ${e.message || e}`);
     }
     setSaving(false);
   };
 
   if (loading) return (
-    <div style={{ textAlign: 'center', padding: '4rem', color: 'rgba(255,255,255,0.4)' }}>กำลังโหลด...</div>
+    <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>กำลังโหลด...</div>
   );
 
   return (
-    <div style={{ color: 'white', fontFamily: 'inherit' }}>
+    <div style={{ color: 'var(--text-main)', fontFamily: 'inherit' }}>
       {/* Page header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users size={26} color="#f97316" /> จัดการพนักงาน
+            <Users size={26} color="var(--accent-hover)" /> จัดการพนักงาน
           </h1>
-          <p style={{ margin: '0.3rem 0 0', color: 'rgba(255,255,255,0.45)', fontSize: '0.9rem' }}>
+          <p style={{ margin: '0.3rem 0 0', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             {users.length} คน &nbsp;•&nbsp; เพิ่ม ลบ และกำหนดสิทธิ์
           </p>
         </div>
@@ -118,20 +164,26 @@ export default function ManageUsers() {
               {saveMsg}
             </span>
           )}
-          <button onClick={handleAddUser} style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 10, color: '#f97316', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button onClick={handleAddUser} style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 10, color: 'var(--text-main)', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Plus size={18} /> เพิ่มพนักงาน
           </button>
-          <button onClick={handleSave} disabled={saving || !dirty} style={{ background: dirty ? '#16a34a' : 'rgba(255,255,255,0.05)', border: `1px solid ${dirty ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 10, color: dirty ? 'white' : 'rgba(255,255,255,0.3)', cursor: saving || !dirty ? 'not-allowed' : 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}>
+          <button onClick={handleSave} disabled={saving || !dirty} style={{ background: dirty ? '#16a34a' : 'rgba(0,0,0,0.05)', border: `1px solid ${dirty ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.1)'}`, borderRadius: 10, color: dirty ? 'white' : 'var(--text-muted)', cursor: saving || !dirty ? 'not-allowed' : 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}>
             <Save size={18} /> {saving ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}
           </button>
         </div>
       </div>
 
+      {loadError && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '0.7rem 0.9rem', marginBottom: '1rem', fontSize: '0.88rem' }}>
+          ⚠️ {loadError}
+        </div>
+      )}
+
       {/* User cards grid */}
       {users.length === 0 ? (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '3rem', textAlign: 'center', color: 'rgba(255,255,255,0.35)' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
           <Users size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-          <p style={{ margin: 0 }}>ยังไม่มีพนักงาน — กด <strong style={{ color: '#f97316' }}>เพิ่มพนักงาน</strong> เพื่อเริ่ม</p>
+          <p style={{ margin: 0 }}>ยังไม่มีพนักงาน — กด <strong style={{ color: 'var(--accent-hover)' }}>เพิ่มพนักงาน</strong> เพื่อเริ่ม</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
@@ -140,58 +192,61 @@ export default function ManageUsers() {
             const color     = avatarColor(user.username);
             const initial   = (user.username || '?')[0].toUpperCase();
             return (
-              <div key={user.id} style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${isEditing ? 'rgba(249,115,22,0.35)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 16, padding: '1.25rem', transition: 'border-color 0.2s' }}>
+              <div key={user.id} style={{ background: 'var(--bg-card)', border: `1px solid ${isEditing ? 'var(--accent)' : 'rgba(0,0,0,0.08)'}`, borderRadius: 16, padding: '1.25rem', transition: 'border-color 0.2s' }}>
                 {isEditing ? (
                   /* ── Edit mode ── */
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, color: '#f97316', fontSize: '0.85rem' }}>✏️ แก้ไขข้อมูล</span>
-                      <button onClick={() => setEditId(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)', cursor: 'pointer', padding: 4 }}><X size={18} /></button>
+                      <span style={{ fontWeight: 700, color: 'var(--accent-hover)', fontSize: '0.85rem' }}>✏️ แก้ไขข้อมูล</span>
+                      <button onClick={() => setEditId(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><X size={18} /></button>
                     </div>
                     <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อพนักงาน</label>
-                      <input style={inp} value={user.username} onChange={e => handleChange(user.id, 'username', e.target.value)} placeholder="ชื่อพนักงาน" />
+                      <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อสาขา (Branch)</label>
+                      <BranchField branches={branches} value={user.branch} onChange={v => handleChange(user.id, 'branch', v)} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 5 }}>PIN (4 หลัก)</label>
+                      <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อผู้ใช้</label>
+                      <input style={inp} value={user.username} onChange={e => handleChange(user.id, 'username', e.target.value)} placeholder="ชื่อผู้ใช้" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>รหัสผ่าน</label>
                       <div style={{ position: 'relative' }}>
                         <input
                           type={showPin[user.id] ? 'text' : 'password'}
-                          maxLength={4}
-                          style={{ ...inp, paddingRight: '2.5rem', letterSpacing: showPin[user.id] ? '0.25rem' : '0.5rem' }}
+                          style={{ ...inp, paddingRight: '2.5rem', letterSpacing: showPin[user.id] ? '0.1rem' : '0.3rem' }}
                           value={user.pin}
-                          onChange={e => handleChange(user.id, 'pin', e.target.value.replace(/\D/g, ''))}
-                          placeholder="0000"
+                          onChange={e => handleChange(user.id, 'pin', e.target.value)}
+                          placeholder="รหัสผ่าน"
                         />
-                        <button onClick={() => setShowPin(p => ({ ...p, [user.id]: !p[user.id] }))} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0 }}>
+                        <button onClick={() => setShowPin(p => ({ ...p, [user.id]: !p[user.id] }))} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}>
                           {showPin[user.id] ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
                     </div>
                     <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 8 }}>สิทธิ์ชำระเงิน</label>
+                      <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 8 }}>สิทธิ์ชำระเงิน</label>
                       <div style={{ display: 'flex', gap: '0.6rem' }}>
                         {[true, false].map(val => (
-                          <button key={String(val)} onClick={() => handleChange(user.id, 'canCheckout', val)} style={{ flex: 1, padding: '0.55rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem', background: user.canCheckout === val ? (val ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)') : 'rgba(255,255,255,0.04)', borderColor: user.canCheckout === val ? (val ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)') : 'rgba(255,255,255,0.1)', color: user.canCheckout === val ? (val ? '#22c55e' : '#ef4444') : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                          <button key={String(val)} onClick={() => handleChange(user.id, 'canCheckout', val)} style={{ flex: 1, padding: '0.55rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem', background: user.canCheckout === val ? (val ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)') : 'rgba(0,0,0,0.02)', borderColor: user.canCheckout === val ? (val ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)') : 'rgba(0,0,0,0.1)', color: user.canCheckout === val ? (val ? '#22c55e' : '#ef4444') : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                             {val ? <><ShieldCheck size={15} /> อนุญาต</> : <><ShieldOff size={15} /> ไม่อนุญาต</>}
                           </button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 8 }}>ระดับสิทธิ์ (เข้าหลังบ้าน)</label>
+                      <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 8 }}>ระดับสิทธิ์ (เข้าหลังบ้าน)</label>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         {ROLE_OPTIONS.map(r => {
                           const active = userRole(user) === r.key;
                           return (
-                            <button key={r.key} onClick={() => setUserRole(user.id, r.key)} style={{ flex: 1, padding: '0.55rem 0.3rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.78rem', background: active ? r.bg : 'rgba(255,255,255,0.04)', borderColor: active ? r.bd : 'rgba(255,255,255,0.1)', color: active ? r.color : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
+                            <button key={r.key} onClick={() => setUserRole(user.id, r.key)} style={{ flex: 1, padding: '0.55rem 0.3rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.78rem', background: active ? r.bg : 'rgba(0,0,0,0.02)', borderColor: active ? r.bd : 'rgba(0,0,0,0.1)', color: active ? r.color : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
                               {r.label}
                             </button>
                           );
                         })}
                       </div>
                     </div>
-                    <button onClick={() => setEditId(null)} style={{ marginTop: 4, padding: '0.65rem', background: '#ea580c', border: 'none', borderRadius: 10, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <button onClick={() => setEditId(null)} style={{ marginTop: 4, padding: '0.65rem', background: 'var(--accent)', border: 'none', borderRadius: 10, color: 'black', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                       <CheckCircle size={16} /> เสร็จสิ้น
                     </button>
                   </div>
@@ -204,16 +259,19 @@ export default function ManageUsers() {
                     </div>
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.username || <span style={{ color: 'rgba(255,255,255,0.3)' }}>ไม่มีชื่อ</span>}</div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {user.username || <span style={{ color: 'var(--text-muted)' }}>ไม่มีชื่อ</span>}
+                        {(user.branch || user.id) && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '0.1rem 0.45rem' }}>🏠 {branchLabel(user.branch || user.id, branches)}</span>}
+                      </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {/* PIN mask */}
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                           {showPin[user.id]
                             ? <><Eye size={12} /> {user.pin}</>
-                            : [0,1,2,3].map(i => <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', display: 'inline-block' }} />)
+                            : [0,1,2,3].map(i => <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(0,0,0,0.25)', display: 'inline-block' }} />)
                           }
                         </span>
-                        <button onClick={() => setShowPin(p => ({ ...p, [user.id]: !p[user.id] }))} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
+                        <button onClick={() => setShowPin(p => ({ ...p, [user.id]: !p[user.id] }))} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
                           {showPin[user.id] ? <EyeOff size={12} /> : <Eye size={12} />}
                         </button>
                         {/* Role badge */}
@@ -251,13 +309,13 @@ export default function ManageUsers() {
 
       {/* ── Add User Modal ── */}
       {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowModal(false)}>
-          <div style={{ background: '#1a1a2e', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 18, padding: '1.75rem', width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setShowModal(false)}>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 10px 30px rgba(0,0,0,0.06)', borderRadius: 18, padding: '1.75rem', width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f97316' }}>
+              <h2 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--accent-hover)' }}>
                 <Plus size={20} /> เพิ่มพนักงานใหม่
               </h2>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><X size={22} /></button>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={22} /></button>
             </div>
 
             {/* Preview avatar */}
@@ -269,47 +327,45 @@ export default function ManageUsers() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อพนักงาน *</label>
-                <input style={inp} placeholder="เช่น สมชาย" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} autoFocus />
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อสาขา (Branch) *</label>
+                <BranchField branches={branches} value={form.branch} onChange={v => setForm(f => ({ ...f, branch: v }))} autoFocus />
               </div>
               <div>
-                <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 5 }}>PIN (4 หลัก) *</label>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>ชื่อผู้ใช้ *</label>
+                <input style={inp} placeholder="ชื่อผู้ใช้" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 5 }}>รหัสผ่าน *</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPin.__new__ ? 'text' : 'password'}
-                    maxLength={4}
-                    style={{ ...inp, textAlign: 'center', fontSize: '1.5rem', letterSpacing: '0.5rem', paddingRight: '2.5rem' }}
-                    placeholder="0000"
+                    style={{ ...inp, paddingRight: '2.5rem', letterSpacing: '0.15rem' }}
+                    placeholder="รหัสผ่าน"
                     value={form.pin}
-                    onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '') }))}
+                    onChange={e => setForm(f => ({ ...f, pin: e.target.value }))}
                   />
-                  <button onClick={() => setShowPin(p => ({ ...p, __new__: !p.__new__ }))} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0 }}>
+                  <button onClick={() => setShowPin(p => ({ ...p, __new__: !p.__new__ }))} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}>
                     {showPin.__new__ ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 10 }}>
-                  {[0,1,2,3].map(i => (
-                    <div key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: form.pin.length > i ? '#f97316' : 'rgba(255,255,255,0.15)', transition: 'background 0.15s' }} />
-                  ))}
-                </div>
               </div>
               <div>
-                <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 8 }}>สิทธิ์ชำระเงิน</label>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 8 }}>สิทธิ์ชำระเงิน</label>
                 <div style={{ display: 'flex', gap: '0.6rem' }}>
                   {[true, false].map(val => (
-                    <button key={String(val)} onClick={() => setForm(f => ({ ...f, canCheckout: val }))} style={{ flex: 1, padding: '0.6rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem', background: form.canCheckout === val ? (val ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)') : 'rgba(255,255,255,0.04)', borderColor: form.canCheckout === val ? (val ? 'rgba(34,197,94,0.5)' : 'rgba(239,68,68,0.5)') : 'rgba(255,255,255,0.1)', color: form.canCheckout === val ? (val ? '#22c55e' : '#ef4444') : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                    <button key={String(val)} onClick={() => setForm(f => ({ ...f, canCheckout: val }))} style={{ flex: 1, padding: '0.6rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.85rem', background: form.canCheckout === val ? (val ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)') : 'rgba(0,0,0,0.02)', borderColor: form.canCheckout === val ? (val ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)') : 'rgba(0,0,0,0.1)', color: form.canCheckout === val ? (val ? '#22c55e' : '#ef4444') : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                       {val ? <><ShieldCheck size={15} /> อนุญาต</> : <><ShieldOff size={15} /> ไม่อนุญาต</>}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: 8 }}>ระดับสิทธิ์ (เข้าหลังบ้าน)</label>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 8 }}>ระดับสิทธิ์ (เข้าหลังบ้าน)</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {ROLE_OPTIONS.map(r => {
                     const active = userRole(form) === r.key;
                     return (
-                      <button key={r.key} onClick={() => setForm(f => ({ ...f, isAdmin: r.key === 'admin', isCashier: r.key === 'cashier' }))} style={{ flex: 1, padding: '0.6rem 0.3rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.78rem', background: active ? r.bg : 'rgba(255,255,255,0.04)', borderColor: active ? r.bd : 'rgba(255,255,255,0.1)', color: active ? r.color : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
+                      <button key={r.key} onClick={() => setForm(f => ({ ...f, isAdmin: r.key === 'admin', isCashier: r.key === 'cashier' }))} style={{ flex: 1, padding: '0.6rem 0.3rem', borderRadius: 8, border: '1.5px solid', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.78rem', background: active ? r.bg : 'rgba(0,0,0,0.02)', borderColor: active ? r.bd : 'rgba(0,0,0,0.1)', color: active ? r.color : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
                         {r.label}
                       </button>
                     );
@@ -319,8 +375,8 @@ export default function ManageUsers() {
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'white', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>ยกเลิก</button>
-              <button onClick={handleModalSave} disabled={!form.username.trim() || form.pin.length !== 4} style={{ flex: 2, padding: '0.8rem', background: form.username.trim() && form.pin.length === 4 ? '#ea580c' : '#444', border: 'none', color: 'white', borderRadius: 10, cursor: form.username.trim() && form.pin.length === 4 ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid rgba(0,0,0,0.15)', color: 'var(--text-main)', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>ยกเลิก</button>
+              <button onClick={handleModalSave} disabled={!form.username.trim() || !form.branch.trim() || !form.pin} style={{ flex: 2, padding: '0.8rem', background: form.username.trim() && form.branch.trim() && form.pin ? 'var(--accent)' : 'rgba(0,0,0,0.05)', border: 'none', color: form.username.trim() && form.branch.trim() && form.pin ? 'black' : 'var(--text-muted)', borderRadius: 10, cursor: form.username.trim() && form.branch.trim() && form.pin ? 'pointer' : 'not-allowed', fontFamily: 'inherit', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                 <Plus size={18} /> เพิ่มพนักงาน
               </button>
             </div>

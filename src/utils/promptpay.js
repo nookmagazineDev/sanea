@@ -26,10 +26,15 @@ export function generatePromptPayPayload(target, amount) {
   const amt = Number(amount);
   const hasAmount = Number.isFinite(amt) && amt > 0;
 
-  // มากกว่าหรือเท่ากับ 13 หลัก = เลขบัตรประชาชน/เลขผู้เสียภาษี (tag 02), ไม่งั้นเป็นเบอร์มือถือ (tag 01)
-  const acctTarget = id.length >= 13
-    ? field('02', id)
-    : field('01', ('0000000000000' + id.replace(/^0/, '66')).slice(-13));
+  // 15 หลัก = e-Wallet ID (tag 29 sub-tag 03), 13 หลัก = เลขบัตรประชาชน/เลขผู้เสียภาษี (tag 29 sub-tag 02), ไม่งั้นเป็นเบอร์มือถือ (tag 29 sub-tag 01)
+  let acctTarget;
+  if (id.length === 15) {
+    acctTarget = field('03', id);
+  } else if (id.length === 13) {
+    acctTarget = field('02', id);
+  } else {
+    acctTarget = field('01', ('0000000000000' + id.replace(/^0/, '66')).slice(-13));
+  }
 
   const merchantAccount = field('29', field('00', 'A000000677010111') + acctTarget);
 
@@ -44,3 +49,88 @@ export function generatePromptPayPayload(target, amount) {
   payload += '6304'; // CRC tag + length
   return payload + crc16(payload);
 }
+
+// สร้าง Dynamic QR code จาก raw payload เดิม (เช่น K Shop QR code) โดยการแก้ไขยอดเงินและคำนวณ CRC ใหม่
+export function generateDynamicQRFromRaw(rawQr, amount) {
+  if (!rawQr) return '';
+  
+  const tags = {};
+  let index = 0;
+  
+  // แกะข้อมูล TLV ใน raw QR String
+  while (index < rawQr.length) {
+    if (index + 4 > rawQr.length) break;
+    const tag = rawQr.slice(index, index + 2);
+    const len = parseInt(rawQr.slice(index + 2, index + 4), 10);
+    if (isNaN(len)) break;
+    const val = rawQr.slice(index + 4, index + 4 + len);
+    tags[tag] = val;
+    index += 4 + len;
+  }
+
+  // รักษาค่า tag 01 เป็น 11 (Static QR) เสมอ เพื่อให้แอปธนาคารไทยส่วนใหญ่สแกน Bill Payment ผ่านได้สำเร็จ
+  tags['01'] = '11';
+
+  // อัปเดตยอดเงินใน tag 54
+  const amt = Number(amount);
+  if (Number.isFinite(amt) && amt > 0) {
+    tags['54'] = amt.toFixed(2);
+  } else {
+    delete tags['54'];
+    tags['01'] = '11'; // ถ้าไม่มียอดเงินให้เป็น static
+  }
+
+  // ลบ CRC tag เก่าทิ้งเพื่อคำนวณใหม่
+  delete tags['63'];
+
+  // ประกอบข้อความใหม่ตามลำดับ tag จากน้อยไปมาก
+  let payload = '';
+  const sortedKeys = Object.keys(tags).sort();
+  for (const key of sortedKeys) {
+    payload += field(key, tags[key]);
+  }
+
+  // แนบ CRC tag + length
+  payload += '6304';
+  
+  // คืนค่า QR payload พร้อม CRC ใหม่
+  return payload + crc16(payload);
+}
+
+// ฟังก์ชันแกะข้อมูล Reference 1 และ Reference 2 จาก K Shop QR payload
+export function parseKShopPayload(rawQr) {
+  if (!rawQr) return null;
+  const tags = {};
+  let index = 0;
+  try {
+    while (index < rawQr.length) {
+      if (index + 4 > rawQr.length) break;
+      const tag = rawQr.slice(index, index + 2);
+      const len = parseInt(rawQr.slice(index + 2, index + 4), 10);
+      if (isNaN(len)) break;
+      const val = rawQr.slice(index + 4, index + 4 + len);
+      tags[tag] = val;
+      index += 4 + len;
+    }
+    
+    let ref1 = '';
+    let ref2 = '';
+    const tag30 = tags['30'];
+    if (tag30) {
+      let t30Idx = 0;
+      while (t30Idx < tag30.length) {
+        const subtag = tag30.slice(t30Idx, t30Idx + 2);
+        const sublen = parseInt(tag30.slice(t30Idx + 2, t30Idx + 4), 10);
+        if (isNaN(sublen)) break;
+        const subval = tag30.slice(t30Idx + 4, t30Idx + 4 + sublen);
+        if (subtag === '02') ref1 = subval;
+        if (subtag === '03') ref2 = subval;
+        t30Idx += 4 + sublen;
+      }
+    }
+    return { ref1, ref2 };
+  } catch (e) {
+    return null;
+  }
+}
+

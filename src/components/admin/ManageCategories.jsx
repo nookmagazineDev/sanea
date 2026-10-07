@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Save, X, GripVertical } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
-
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+import { API_URL, nextItemId } from '../../utils/api';
+import { VISIBILITY_OPTIONS } from '../../utils/categoryVisibility';
 
 const ManageCategories = () => {
   const { lang } = useOutletContext();
   const [categories, setCategories] = useState([]);
-  const [menuList, setMenuList] = useState([]);
+  const [, setMenuList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -24,7 +24,7 @@ const ManageCategories = () => {
     setLoading(true);
 
     try {
-      const resp = await fetch(GAS_URL + '?action=getAllData');
+      const resp = await fetch(API_URL + '?action=getAllData');
       const data = await resp.json();
       if (data) {
         localStorage.setItem('gas_all_data', JSON.stringify(data));
@@ -39,7 +39,7 @@ const ManageCategories = () => {
 
   const handleSave = async (newArray) => {
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -70,7 +70,7 @@ const ManageCategories = () => {
       const updated = categories.filter(item => item.slug !== slug);
       
       try {
-        await fetch(GAS_URL, {
+        await fetch(API_URL, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'text/plain' },
@@ -108,7 +108,7 @@ const ManageCategories = () => {
     setDraggedIdx(null);
   };
 
-  const handleDragOver = (e, index) => {
+  const handleDragOver = (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
@@ -127,13 +127,16 @@ const ManageCategories = () => {
     setIsModalOpen(true);
   };
 
-  const handleAddNew = () => {
+  const handleAddNew = async () => {
+    // หมวดหมู่ใช้ชุดเลขเดียวกับเมนู รหัสจึงไม่มีทางซ้ำกันข้ามสองตาราง
+    const id = await nextItemId(categories.map(c => c.slug));
     setEditingItem({
-      slug: `cat_${Date.now()}`,
+      slug: id,
       name: '',
       nameEn: '',
       icon: '📌',
       isActive: true,
+      visibility: 'all',
       hasPopup1: false, popup1Category: '', popup1Items: [], popup1ItemsMax: {}, popup1Min: 0, popup1Max: 0, popup1Free: false,
       hasPopup2: false, popup2Category: '', popup2Items: [], popup2ItemsMax: {}, popup2Min: 0, popup2Max: 0, popup2Free: false,
       hasPopup3: false, popup3Category: '', popup3Items: [], popup3ItemsMax: {}, popup3Min: 0, popup3Max: 0, popup3Free: false,
@@ -155,7 +158,7 @@ const ManageCategories = () => {
     }
     
     try {
-      await fetch(GAS_URL, {
+      await fetch(API_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
@@ -180,17 +183,6 @@ const ManageCategories = () => {
     } catch(err) {
       alert('Failed to save to database');
     }
-  };
-
-  const handleItemToggle = (field, id) => {
-    setEditingItem(prev => {
-      const current = prev[field] || [];
-      if (current.includes(id)) {
-        return { ...prev, [field]: current.filter(i => i !== id) };
-      } else {
-        return { ...prev, [field]: [...current, id] };
-      }
-    });
   };
 
   const handleAutoTranslate = async () => {
@@ -285,6 +277,11 @@ const ManageCategories = () => {
                       }}>
                         {item.isActive !== false ? (lang === 'th' ? 'เปิดแสดง' : 'Active') : (lang === 'th' ? 'ซ่อน' : 'Hidden')}
                       </span>
+                      {item.isActive !== false && item.visibility && item.visibility !== 'all' && (
+                        <div style={{ marginTop: 4, fontSize: '0.78rem', fontWeight: 600, color: item.visibility === 'staff' ? '#2563eb' : '#c2410c' }}>
+                          {item.visibility === 'staff' ? (lang === 'th' ? '👤 เฉพาะพนักงาน' : 'Staff only') : (lang === 'th' ? '📱 เฉพาะลูกค้า' : 'Customers only')}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <button className="admin-btn secondary" style={{ marginRight: '0.5rem', padding: '0.4rem' }} onClick={() => handleEdit(item)}>
@@ -313,7 +310,7 @@ const ManageCategories = () => {
           <div className="admin-modal">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
               <h2>{editingItem.name ? (lang === 'th' ? 'แก้ไขหมวดหมู่' : 'Edit Category') : (lang === 'th' ? 'เพิ่มหมวดหมู่ใหม่' : 'Add New Category')}</h2>
-              <button style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
+              <button style={{ background: 'none', border: 'none', color: 'var(--text-main)', cursor: 'pointer' }} onClick={() => setIsModalOpen(false)}>
                 <X size={24} />
               </button>
             </div>
@@ -321,8 +318,10 @@ const ManageCategories = () => {
             <form onSubmit={handleFormSubmit}>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div className="admin-form-group" style={{ flex: 1 }}>
-                  <label>{lang === 'th' ? 'Slug (รหัสภาษาอังกฤษ เช่น "drinks")' : 'Slug (Machine readable ID, e.g. "drinks")'}</label>
-                  <input required value={editingItem.slug} onChange={e => setEditingItem({...editingItem, slug: e.target.value})} />
+                  {/* รหัสหมวดหมู่ระบบออกให้เอง แก้เองไม่ได้ — เมนู ส่วนลด และป๊อปอัพอ้างถึงรหัสนี้อยู่
+                      ถ้าแก้มือ ของที่ผูกไว้จะหลุดทันที */}
+                  <label>{lang === 'th' ? 'รหัสหมวดหมู่ (ระบบออกให้)' : 'Category ID (auto-generated)'}</label>
+                  <input value={editingItem.slug} readOnly style={{ opacity: 0.7, cursor: 'not-allowed' }} />
                 </div>
                 <div className="admin-form-group" style={{ flex: 0.5 }}>
                   <label>{lang === 'th' ? 'ไอคอน (อีโมจิ)' : 'Icon (Emoji)'}</label>
@@ -353,6 +352,27 @@ const ManageCategories = () => {
                 <label htmlFor="cat-active" style={{ marginBottom: 0, cursor: 'pointer' }}>
                   {lang === 'th' ? 'เปิดใช้งาน (แสดงบนหน้าร้าน)' : 'Active (Show on storefront)'}
                 </label>
+              </div>
+
+              <div className="admin-form-group">
+                <label>{lang === 'th' ? 'แสดงให้ใครเห็น' : 'Visible to'}</label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {VISIBILITY_OPTIONS.map(opt => {
+                    const on = (editingItem.visibility || 'all') === opt.value;
+                    return (
+                      <button type="button" key={opt.value} onClick={() => setEditingItem({ ...editingItem, visibility: opt.value })}
+                        style={{ padding: '0.45rem 0.85rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: on ? 700 : 500,
+                          border: `1.5px solid ${on ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(234,179,8,0.15)' : '#fff', color: 'var(--text-main)' }}>
+                        {lang === 'th' ? opt.label : opt.labelEn}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                  {lang === 'th'
+                    ? 'เฉพาะพนักงาน = ไม่ขึ้นในหน้าลูกค้าสั่งเอง/QR · เฉพาะลูกค้า = ไม่ขึ้นในหน้าขายของพนักงาน · เมนูในหมวดยังใช้เป็นตัวเลือกในป๊อปอัพได้ตามเดิม'
+                    : 'Staff only = hidden on the self-order/QR page · Customers only = hidden on the staff POS · items still work as popup options.'}
+                </div>
               </div>
 
               <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>

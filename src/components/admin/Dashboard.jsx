@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, ShoppingBag, Clock, TrendingUp } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
+import { API_URL } from '../../utils/api';
 
 const Dashboard = () => {
   const { lang } = useOutletContext();
@@ -10,8 +11,6 @@ const Dashboard = () => {
     pendingOrders: 0,
     recentOrders: []
   });
-
-  const GAS_URL = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
 
   useEffect(() => {
     fetchDashboardData();
@@ -64,7 +63,7 @@ const Dashboard = () => {
     }
 
     try {
-      const resp = await fetch(GAS_URL + '?action=getAllData');
+      const resp = await fetch(API_URL + '?action=getAllData');
       const data = await resp.json();
       if (data && data.orders) {
         localStorage.setItem('gas_all_data', JSON.stringify(data));

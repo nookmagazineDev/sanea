@@ -2,27 +2,27 @@
   display: flex;
   height: 100vh;
   background: var(--bg-dark);
-  color: white;
+  color: var(--text-main);
   font-family: 'Inter', system-ui, sans-serif;
 }
 
 .admin-sidebar {
   width: 280px;
   background: var(--bg-card);
-  border-right: 1px solid rgba(255,255,255,0.05);
+  border-right: 1px solid rgba(0,0,0,0.08);
   display: flex;
   flex-direction: column;
 }
 
 .admin-logo {
   padding: 2rem;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 .admin-logo h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--accent);
+  color: var(--accent-hover);
 }
 
 .admin-nav {
@@ -51,8 +51,8 @@
 }
 
 .admin-link:hover, .admin-link.active {
-  background: rgba(249, 115, 22, 0.1);
-  color: var(--accent);
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--text-main);
 }
 
 .admin-link.logout {
@@ -64,10 +64,62 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* ปุ่มกลับหน้าร้าน/ออกจากระบบ ใต้หัวเมนูซ้าย — เดิมอยู่ท้ายเมนูยาว ๆ ต้องเลื่อนลงไปหา */
+.admin-quick {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.admin-quick button {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.admin-quick button:hover { background: rgba(234, 179, 8, 0.15); }
+.admin-quick button.danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+.admin-quick button.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
 .admin-main {
   flex-grow: 1;
+  min-width: 0;
   padding: 2.5rem 3rem;
   overflow-y: auto;
+}
+
+/* หน้าที่เนื้อหาเป็นการ์ดเรียงลงมา — จอกว้างให้ไหลเป็นหลายคอลัมน์แทนที่จะทิ้งที่ว่างไว้ครึ่งจอ
+   (การ์ดใบไหนอยากกินเต็มแถวใส่ class admin-card-wide) */
+.admin-page { width: 100%; }
+
+@media (min-width: 1180px) {
+  .admin-page-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 0 1.25rem;
+    align-content: start;
+    /* การ์ดสูงไม่เท่ากัน — ไม่ต้องยืดใบเตี้ยให้สูงตามใบข้าง ๆ */
+    align-items: start;
+  }
+  .admin-page-cards > h2,
+  .admin-page-cards > p,
+  .admin-page-cards > button {
+    grid-column: 1 / -1;
+  }
 }
 
 .admin-header {
@@ -77,6 +129,7 @@
 .admin-header h1 {
   margin: 0 0 0.5rem 0;
   font-size: 2rem;
+  color: var(--text-main);
 }
 
 .admin-header p {
@@ -88,7 +141,7 @@
   background: var(--bg-card);
   border-radius: 16px;
   padding: 1.75rem;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(0,0,0,0.08);
   margin-bottom: 2rem;
 }
 
@@ -100,10 +153,10 @@
 }
 
 .stat-card {
-  background: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+  background: var(--bg-card);
   padding: 1.5rem;
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(0,0,0,0.08);
   display: flex;
   align-items: center;
   gap: 1.5rem;
@@ -116,8 +169,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(249, 115, 22, 0.1);
-  color: var(--accent);
+  background: rgba(250, 204, 21, 0.15);
+  color: var(--accent-hover);
 }
 
 .stat-details h3 {
@@ -131,7 +184,7 @@
   margin: 0;
   font-size: 1.75rem;
   font-weight: 700;
-  color: white;
+  color: var(--text-main);
 }
 
 .admin-table-container {
@@ -146,7 +199,7 @@
 .admin-table th, .admin-table td {
   padding: 1rem;
   text-align: left;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.08);
 }
 
 .admin-table th {
@@ -159,7 +212,7 @@
 
 .admin-btn {
   background: var(--accent);
-  color: white;
+  color: black;
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
@@ -173,15 +226,16 @@
 
 .admin-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
 }
 
 .admin-btn.secondary {
-  background: rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.05);
+  color: var(--text-main);
 }
 
 .admin-btn.secondary:hover {
-  background: rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.08);
   box-shadow: none;
 }
 
@@ -199,7 +253,7 @@
 .admin-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.4);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: flex-start;
@@ -215,7 +269,8 @@
   border-radius: 16px;
   width: 100%;
   max-width: 500px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
   margin: auto;
 }
 
@@ -233,10 +288,10 @@
 .admin-form-group input, .admin-form-group select, .admin-form-group textarea {
   width: 100%;
   padding: 0.85rem;
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.15);
   border-radius: 8px;
-  color: white;
+  color: var(--text-main);
   font-family: inherit;
   font-size: 1rem;
 }
@@ -246,13 +301,25 @@
   border-color: var(--accent);
 }
 
+/* กฎด้านบนตั้งใจให้ช่องกรอกข้อความเต็มความกว้าง แต่ไปโดนช่องติ๊กด้วย
+   ช่องติ๊กจึงกว้างเท่ากล่องทั้งใบ บีบข้อความข้าง ๆ จนเหลือบรรทัดละตัวอักษร */
+.admin-form-group input[type="checkbox"],
+.admin-form-group input[type="radio"] {
+  width: auto;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .admin-search-input {
   width: 100%;
   padding: 0.85rem 1rem;
-  background: rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.15);
   border-radius: 8px;
-  color: white;
+  color: var(--text-main);
   font-family: inherit;
   font-size: 1rem;
   transition: all 0.2s;
@@ -261,5 +328,5 @@
 .admin-search-input:focus {
   outline: none;
   border-color: var(--accent);
-  background: rgba(0,0,0,0.3);
+  background: #ffffff;
 }

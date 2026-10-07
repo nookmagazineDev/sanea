@@ -2,6 +2,14 @@ import React from 'react';
 import { Plus, Minus } from 'lucide-react';
 
 const CATEGORY_FOLDERS = {
+  "ชุดอิ่มเดี่ยว": "ชุดอิ่มเดี่ยว",
+  "ไก่ล้วนๆ": "ไก่ล้วนๆ",
+  "ท๊อปปิ้งเสริม": "ท๊อปปิ้งเสริม",
+  "น้ำจิ้ม": "น้ำจิ้ม",
+  "ก๋วยเตี๊ยวลูกชิ้นไก่": "ก๋วยเตี๊ยวลูกชิ้นไก่",
+  "ของทานเล่น": "ของทานเล่น",
+  "เครื่องดื่ม": "เครื่องดื่ม",
+  "ของหวาน": "ของหวาน",
   "Promotion": "Promotion",
   "SET": "กับแกล้ม3อย่าง  ทอด ต้ม ย่าง",
   "ของกินเล่น": "ของกินเล่น",
@@ -13,26 +21,39 @@ const CATEGORY_FOLDERS = {
   "เบียร์": "เบียร์",
   "เหล้า": "เหล้า",
   "มิกเซอร์": "มิกเซอร์",
-  "โชจู": "โชจู",
-  "cat_1779987830937": "เหล้าอะไรก๋ได้ แถมไข่ตุ๋น",
-  "cat_1779988171217": "setเจ้าสัว"
+  "โชจู": "โชจู"
 };
 
-const FoodCard = ({ food, onOrderClick, onDecreaseClick, cartQuantity = 0, lang = 'th', displayPrice }) => {
+const FoodCard = ({ food, onOrderClick, onDecreaseClick, cartQuantity = 0, lang = 'th', displayPrice, disabled = false, disabledReason = '' }) => {
   const name = lang === 'th' ? food.name : (food.nameEn || food.name);
   const desc = lang === 'th' ? food.description : (food.descriptionEn || food.description);
 
   const folder = CATEGORY_FOLDERS[food.category] || food.category || 'uncategorized';
   const sanitizedFileName = (food.name || '').replace(/[\\/:*?"<>|]/g, '_').trim();
 
-  // ลำดับรูปที่จะลองโหลด (ไม่แก้ไข object ของเมนูโดยตรง)
+  // ลำดับรูปที่จะลองโหลด (เน้นรูปภาพถ่ายเหมือนจริง PNG/JPG ก่อน)
   const candidates = React.useMemo(() => {
     const list = [];
-    if (food.image) list.push(food.image);
+    // 1. รูปที่แอดมินอัปโหลด/ใส่ลิงก์ไว้เอง (เช่นรูปใน Google Drive) — มาก่อนเสมอ
+    //    เพราะเป็นรูปที่ตั้งใจเลือกให้เมนูนี้ ส่วนข้อ 2-4 เป็นการ "เดา" ชื่อไฟล์ในเครื่อง
+    if (food.image && String(food.image).trim()) {
+      list.push(String(food.image).trim());
+    }
+    // 2. Check folder-based real photos (PNG/JPG)
     list.push(`/images/${folder}/${sanitizedFileName}.png`);
+    list.push(`/images/${folder}/${sanitizedFileName}.jpg`);
+    // 3. Check root-based real photos (PNG/JPG)
+    list.push(`/images/${sanitizedFileName}.png`);
+    list.push(`/images/${sanitizedFileName}.jpg`);
+    // 4. Check ID-based real photos (PNG/JPG)
+    list.push(`/images/item_${food.id}.png`);
+    list.push(`/images/item_${food.id}.jpg`);
+    // 5. SVG vector fallback
     list.push(`/images/${folder}/${sanitizedFileName}.svg`);
+    list.push(`/images/${sanitizedFileName}.svg`);
+    list.push(`/images/item_${food.id}.svg`);
     return list;
-  }, [food.image, folder, sanitizedFileName]);
+  }, [food.image, folder, sanitizedFileName, food.id]);
 
   const [imgIdx, setImgIdx] = React.useState(0);
   React.useEffect(() => { setImgIdx(0); }, [food.id, candidates.length]);
@@ -42,15 +63,19 @@ const FoodCard = ({ food, onOrderClick, onDecreaseClick, cartQuantity = 0, lang 
 
   return (
     <div
-      className={`pos-food-card ${cartQuantity > 0 ? 'in-cart' : ''}`}
-      onClick={() => onOrderClick(food)}
+      className={`pos-food-card ${cartQuantity > 0 ? 'in-cart' : ''} ${disabled ? 'unavailable' : ''}`}
+      onClick={disabled ? undefined : () => onOrderClick(food)}
+      title={disabled ? disabledReason : undefined}
     >
       <div className="pos-card-img-wrap">
         {imageSrc ? (
-          <img 
-            src={imageSrc} 
-            alt={name} 
-            className="pos-card-img" 
+          <img
+            src={imageSrc}
+            alt={name}
+            className="pos-card-img"
+            loading="lazy"
+            /* Google Drive ปฏิเสธการโหลดรูปข้ามเว็บเมื่อมี referrer ติดไปด้วย */
+            referrerPolicy="no-referrer"
             onError={handleImageError}
           />
         ) : (
@@ -66,11 +91,13 @@ const FoodCard = ({ food, onOrderClick, onDecreaseClick, cartQuantity = 0, lang 
         {desc && <p className="pos-card-desc">{desc}</p>}
 
         <div className="pos-card-footer">
-          <span className="pos-card-price">
-            ฿{Number(displayPrice != null ? displayPrice : food.price).toLocaleString()}
+          <span className={`pos-card-price ${disabled ? 'unavailable' : ''}`}>
+            {disabled
+              ? (lang === 'th' ? 'ยังไม่ตั้งราคา' : 'No price set')
+              : `฿${Number(displayPrice != null ? displayPrice : food.price).toLocaleString()}`}
           </span>
 
-          {cartQuantity > 0 ? (
+          {disabled ? null : cartQuantity > 0 ? (
             <div className="pos-stepper" onClick={(e) => e.stopPropagation()}>
               <button
                 className="pos-stepper-btn minus"
