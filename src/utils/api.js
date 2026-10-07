@@ -1,14 +1,15 @@
 // ปลายทาง API ของระบบ POS
 //
-// เดิมหน้าบ้านยิงตรงไปที่ Google Apps Script (/exec) โดยฮาร์ดโค้ด URL ไว้ในทุกไฟล์
-// ตอนนี้ข้อมูลอยู่บน SQL Server แล้ว ทุกหน้าจึงเรียกผ่านปลายทางเดียวกันที่นี่ที่เดียว
+// ทุกหน้าเรียกผ่านปลายทางเดียวกันที่นี่ที่เดียว
 //
-// ค่าเริ่มต้น '/api/pos' = เรียก API ที่ deploy อยู่โดเมนเดียวกับหน้าเว็บ
-// ถ้า API อยู่คนละที่ (เช่นรันที่เครื่องออฟฟิศ) ตั้ง VITE_API_URL ตอน build:
-//   VITE_API_URL=https://pos-api.example.com/api/pos npm run build
+// ค่าเริ่มต้น = Google Apps Script ของเสน่ห์ (ข้อมูลอยู่ใน Google Sheet — โค้ดฝั่งนั้นคือ gas_complete_script.js)
+// พร้อมย้ายไป SQL Server เมื่อไร ตั้ง VITE_API_URL ตอน build (ไม่ต้องแก้โค้ด):
+//   VITE_API_URL=/api/pos npm run build                                  ← API บน Vercel โดเมนเดียวกับหน้าเว็บ
+//   VITE_API_URL=https://pos-api.example.com/api/pos npm run build       ← API อยู่คนละที่
+const GOOGLE_SHEET_API = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
 const configured = String(import.meta.env.VITE_API_URL || '').trim();
 
-export const API_URL = configured || '/api/pos';
+export const API_URL = configured || GOOGLE_SHEET_API;
 
 // URL แบบเต็มสำหรับส่งให้โปรแกรมอื่นเรียก (Print Server อยู่คนละเครื่อง ใช้ path สั้น ๆ ไม่ได้)
 export const apiUrlAbsolute = () => {

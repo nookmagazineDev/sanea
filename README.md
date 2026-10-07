@@ -4,15 +4,21 @@
 
 ## ข้อมูลอยู่ที่ไหน
 
-ข้อมูลทั้งหมดอยู่บน **SQL Server** เรียกผ่าน API ที่ `/api/pos` (โค้ดอยู่ในโฟลเดอร์ `api/`)
-โครงสร้างตารางอยู่ที่ `db/schema.sql`
+ตอนนี้ข้อมูลทั้งหมดอยู่ใน **Google Sheet ของเสน่ห์** เรียกผ่าน Google Apps Script
+(URL อยู่ที่ `src/utils/api.js` · โค้ดฝั่ง Apps Script คือไฟล์ `gas_complete_script.js`)
 
-- ตั้งค่าการเชื่อมต่อ: คัดลอก `.env.example` เป็น `.env` แล้วแก้ค่า `SQL_*`
-- สร้างตาราง: `npm run sql:init`
-- ย้ายข้อมูลเดิมจาก Google Sheet: `npm run sql:migrate -- --write`
-- ขั้นตอนทั้งหมด (รวมการตั้งค่าบน Vercel และวิธีถอยกลับ): [`docs/SQL-MIGRATION.md`](docs/SQL-MIGRATION.md)
-- SQL Server อยู่ในวงแลน แต่**มีโดเมน https ของระบบอื่นอยู่แล้ว**: เกาะโดเมนนั้นเลย [`docs/API-BEHIND-EXISTING-DOMAIN.md`](docs/API-BEHIND-EXISTING-DOMAIN.md)
-- SQL Server อยู่ในวงแลน และไม่มีโดเมนของตัวเอง: เปิด API ออกผ่าน Cloudflare Tunnel [`docs/CLOUDFLARE-TUNNEL.md`](docs/CLOUDFLARE-TUNNEL.md)
+**ต้องทำหลัง merge (ครั้งเดียว):** เปิดโปรเจกต์ Apps Script ตัวเดิมของเสน่ห์ → วางโค้ดจาก `gas_complete_script.js` ทับทั้งไฟล์ →
+Deploy > Manage deployments > แก้ deployment เดิม > Version: **New version** (URL เดิมไม่เปลี่ยน)
+แล้วเปิด `<URL>?action=ping` ดูว่า `build` เป็น `2026-10-07-sanea-humlai-features`
+- ก่อน deploy สคริปต์ใหม่ หน้าขาย/หลังบ้านหลัก ๆ ยังใช้ได้ (หน้าเว็บถอยไปใช้คำสั่งเดิมให้เอง)
+  แต่ล็อกอินที่เซิร์ฟเวอร์, สาขา, ผังโต๊ะ, เมนูรายสาขา, ลำดับเมนู, ใบกำกับภาษี, ลูกค้าสแกนจ่าย, บันทึกเตรียม/นับสต็อก จะใช้ได้หลัง deploy
+- สคริปต์ใหม่สร้างชีตที่ขาด (Branches, MenuBranch, KioskPayments, TaxInvoices, TaxCustomers) และเพิ่มคอลัมน์ให้ชีตเดิมเอง
+
+### ย้ายไป SQL Server ภายหลัง (ยังไม่ต้องทำ)
+
+โค้ด API ฝั่ง SQL Server อยู่ในโฟลเดอร์ `api/` ครบแล้ว (`db/schema.sql` = โครงสร้างตาราง) — พร้อมเมื่อไรแค่ build ด้วย `VITE_API_URL=/api/pos`
+- ตั้งค่าการเชื่อมต่อ: คัดลอก `.env.example` เป็น `.env` แล้วแก้ค่า `SQL_*` → `npm run sql:init` → `npm run sql:migrate -- --write`
+- ขั้นตอนทั้งหมด: [`docs/SQL-MIGRATION.md`](docs/SQL-MIGRATION.md) · เกาะโดเมนเดิม: [`docs/API-BEHIND-EXISTING-DOMAIN.md`](docs/API-BEHIND-EXISTING-DOMAIN.md) · Cloudflare Tunnel: [`docs/CLOUDFLARE-TUNNEL.md`](docs/CLOUDFLARE-TUNNEL.md)
 
 ## คำสั่งที่ใช้บ่อย
 
@@ -41,10 +47,7 @@
 
 โค้ดชุดนี้ใช้ฟังก์ชันและหน้าจอชุดเดียวกับ HumLai-POS ทุกหน้า สิ่งที่แยกเป็นของร้านเสน่ห์เอง:
 
-- **เมนู หมวดหมู่ และรูปเมนู** — อยู่ในฐานข้อมูลของเสน่ห์เอง (ค่าเริ่มต้น `SQL_DATABASE=SaneaPOS`) และรูปใน `public/images/` ไม่ปนกับร้านอื่น
+- **เมนู หมวดหมู่ และรูปเมนู** — อยู่ใน Google Sheet ของเสน่ห์เอง (ถ้าย้ายไป SQL ภายหลัง ใช้ฐานข้อมูลแยก `SaneaPOS`) และรูปใน `public/images/` ไม่ปนกับร้านอื่น
 - **รหัสเมนู/หมวดหมู่** ขึ้นต้นด้วย `SN` (เช่น `SN00001`)
-- **พอร์ต API Server** ค่าเริ่มต้นคือ `8081` เปิดเครื่องเดียวกับ API ของร้านอื่นได้โดยไม่ชนกัน
+- **พอร์ต API Server (ตอนใช้ SQL)** ค่าเริ่มต้นคือ `8081` เปิดเครื่องเดียวกับ API ของร้านอื่นได้โดยไม่ชนกัน
 - ชื่อร้าน/โลโก้บนหน้าจอและใบเสร็จเป็นของเสน่ห์
-
-ย้ายเมนูและข้อมูลเดิมจาก Google Sheet ของเสน่ห์: deploy `gas_complete_script.js` เวอร์ชันนี้ทับ Apps Script เดิม
-(เพิ่มคำสั่ง `exportSheet`) แล้วรัน `npm run sql:migrate -- --write` ตามขั้นตอนใน [`docs/SQL-MIGRATION.md`](docs/SQL-MIGRATION.md)

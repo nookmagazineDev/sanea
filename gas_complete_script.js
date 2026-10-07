@@ -6,15 +6,15 @@
 // รองรับ: isAdmin, หมายเหตุอาหาร, popupConfig รายเมนู, ราคาหลายแบบ (prices), แยกจ่าย (splitDetail)
 // ==========================================
 
-var SHEET_ID = '16TdnUiHIZ0ACWbbNq2h6tXg49LL0N3FCHXMXB5Y9BlM';
+var SHEET_ID = '1QSsVi6No7HJKqBcPiXcX_Xs1iMC9SRk6bydJ88dGNP4';
 
 // ป้ายเวอร์ชันของสคริปต์ — ใช้ตรวจว่า deployment ที่แอปเรียกอยู่เป็นโค้ดล่าสุดหรือยัง
 // (เปิด <URL>/exec?action=ping ในเบราว์เซอร์แล้วดูค่านี้) แก้โค้ดครั้งต่อไปให้ขยับเลขวันที่ด้วย
-var SCRIPT_BUILD = '2026-09-11-export-for-sql';
+var SCRIPT_BUILD = '2026-10-07-sanea-humlai-features';
 
 // โฟลเดอร์ Google Drive สำหรับเก็บรูปเมนูที่อัปโหลดจากหน้าจัดการเมนู
-// https://drive.google.com/drive/folders/14n5TTf-0fUD4_BrjPXr8e1Np8GIQwkM3
-var MENU_IMAGE_FOLDER_ID = '14n5TTf-0fUD4_BrjPXr8e1Np8GIQwkM3';
+// https://drive.google.com/drive/folders/11aWwDOmZO_mijABBSJjpm-0pHuhLvyYp
+var MENU_IMAGE_FOLDER_ID = '11aWwDOmZO_mijABBSJjpm-0pHuhLvyYp';
 // โฟลเดอร์เก็บสลิปการโอนเงิน (แยกจากรูปเมนู)
 var SLIP_FOLDER_ID = '1gxmLA9FZttcH3PCxlqY7TEHNXtnMMgYj';
 
@@ -78,19 +78,24 @@ function initializeSheets() {
     orderSheet.getRange(1, 13).setValue('Quantity');
   }
   getOrCreateSheet(ss, 'Categories', ['slug', 'name', 'nameEn', 'icon', 'isActive', 'hasPopup1', 'popup1Category', 'popup1Items', 'popup1Min', 'popup1Max', 'popup1ItemsMax', 'popup1Free', 'hasPopup2', 'popup2Category', 'popup2Items', 'popup2Min', 'popup2Max', 'popup2ItemsMax', 'popup2Free', 'hasPopup3', 'popup3Category', 'popup3Items', 'popup3Min', 'popup3Max', 'popup3ItemsMax', 'popup3Free', 'hasPopup4', 'popup4Category', 'popup4Items', 'popup4Min', 'popup4Max', 'popup4ItemsMax', 'popup4Free', 'hasPopup5', 'popup5Category', 'popup5Items', 'popup5Min', 'popup5Max', 'popup5ItemsMax', 'popup5Free', 'hasPopup6', 'popup6Category', 'popup6Items', 'popup6Min', 'popup6Max', 'popup6ItemsMax', 'popup6Free', 'hasDining']);
-  getOrCreateSheet(ss, 'Menu', ['id', 'category', 'name', 'nameEn', 'description', 'descriptionEn', 'price', 'image', 'isActive', 'bundledItems', 'popupConfig', 'prices', 'categories', 'printerId']);
+  getOrCreateSheet(ss, 'Menu', MENU_HEADERS);
   getOrCreateSheet(ss, 'Promotions', ['id', 'name', 'nameEn', 'price', 'origPrice']);
   getOrCreateSheet(ss, 'TableOrders', ['TableNumber', 'SessionId', 'ItemName', 'ItemNameEn', 'ItemPrice', 'Quantity', 'Options', 'Timestamp', 'Status', 'RecordedBy']);
   getOrCreateSheet(ss, 'Users', ['id', 'username', 'pin', 'canCheckout', 'isAdmin', 'isCashier', 'branch']);
   getOrCreateSheet(ss, 'Discounts', ['id', 'name', 'type', 'value', 'categories']);
   getOrCreateSheet(ss, 'Settings', ['key', 'value']);
-  getOrCreateSheet(ss, 'Printers', ['id', 'name', 'ip', 'type', 'printMode']);
+  getOrCreateSheet(ss, 'Printers', PRINTER_HEADERS);
   getOrCreateSheet(ss, 'LiquorStorage', ['timestamp', 'type', 'customerName', 'phone', 'productName', 'qty', 'note', 'staff', 'category', 'unit']);
-  getOrCreateSheet(ss, 'Waste', ['timestamp', 'branch', 'itemName', 'category', 'qty', 'unit', 'note', 'staff']);
+  getOrCreateSheet(ss, 'Waste', WASTE_HEADERS);
   getOrCreateSheet(ss, 'PaymentApprovals', ['id', 'timestamp', 'tableNo', 'orderNumber', 'amount', 'requestedBy', 'status', 'approver', 'respondedAt']);
   getOrCreateSheet(ss, 'OutstandingBills', ['id', 'shiftId', 'tableNo', 'customerName', 'phone', 'total', 'items', 'createdAt', 'status']);
   getOrCreateSheet(ss, 'Shifts', ['id', 'openTime', 'closeTime', 'openStaff', 'closeStaff', 'openCash', 'closeCash', 'totalSales', 'totalCash', 'totalCard', 'totalTransfer', 'totalOrders', 'status', 'note']);
   getOrCreateSheet(ss, 'PaymentSummary', ['timestamp', 'orderNumber', 'tableNo', 'paymentMethod', 'grandTotal', 'staff', 'shiftId', 'splitDetail']);
+  textSheet(ss, 'Branches', BRANCH_HEADERS);
+  textSheet(ss, 'MenuBranch', MENU_BRANCH_HEADERS);
+  textSheet(ss, 'KioskPayments', KIOSK_PAYMENT_HEADERS);
+  textSheet(ss, 'TaxInvoices', TAX_INVOICE_HEADERS);
+  textSheet(ss, 'TaxCustomers', TAX_CUSTOMER_HEADERS);
 }
 
 // ฟังก์ชันสำหรับรันครั้งแรกใน Apps Script เพื่อสร้างชีททั้งหมด (ข้อมูลพื้นฐาน + สต็อก/BOM)
@@ -152,9 +157,14 @@ function cacheGetLong(key) {
   return out;
 }
 
-// ลบแค่ตัวนับก็พอ — cacheGetLong จะคืน null ทันที
+// cache แยกตามสาขา — ล้างทุกสาขาพร้อมกันด้วยการขยับเลขรุ่น (generation) ของ key
+function staticCacheKey(branchId) {
+  var gen = CacheService.getScriptCache().get(STATIC_CACHE_KEY + '_gen') || '0';
+  return STATIC_CACHE_KEY + '_' + gen + '_' + String(branchId || '').replace(/[^0-9A-Za-z_-]/g, '');
+}
+
 function clearStaticCache() {
-  CacheService.getScriptCache().remove(STATIC_CACHE_KEY + '_n');
+  CacheService.getScriptCache().put(STATIC_CACHE_KEY + '_gen', String(Date.now()), 21600);
 }
 
 function readSettings(ss) {
@@ -170,16 +180,490 @@ function readSettings(ss) {
 }
 
 // ข้อมูลเย็น: เปลี่ยนเฉพาะตอนแอดมินแก้หลังบ้าน → อ่านจาก cache ได้
-function buildStaticData(ss) {
+// branchId = ส่งเมนูที่ปรับตามสาขานั้นแล้ว ('' = เมนูกลาง ใช้ในหน้าหลังบ้าน)
+// ไม่ส่งรหัสพนักงานออกไป — ใครก็เรียก getStatic ได้ (หน้าลูกค้าสั่งเอง) รหัสเช็กตอน action=login
+function buildStaticData(ss, branchId) {
+  var printers = getSheetDataAsObjects(ss, 'Printers');
+  var menu = sortMenuRows(getSheetDataAsObjects(ss, 'Menu'));
   return {
-    categories: getSheetDataAsObjects(ss, 'Categories'),
-    menu:       getSheetDataAsObjects(ss, 'Menu'),
-    promotions: getSheetDataAsObjects(ss, 'Promotions'),
-    users:      getSheetDataAsObjects(ss, 'Users'),
-    printers:   getSheetDataAsObjects(ss, 'Printers'),
-    discounts:  getSheetDataAsObjects(ss, 'Discounts'),
-    settings:   readSettings(ss)
+    categories:    getSheetDataAsObjects(ss, 'Categories'),
+    menu:          applyBranchMenu(menu, getMenuBranchRows(ss, branchId), printers, branchId),
+    promotions:    getSheetDataAsObjects(ss, 'Promotions'),
+    users:         getSheetDataAsObjects(ss, 'Users').map(function(u) {
+                     var out = {};
+                     for (var k in u) if (k !== 'pin') out[k] = u[k];
+                     out.hasPin = String(u.pin == null ? '' : u.pin) !== '';
+                     return out;
+                   }),
+    printers:      printers,
+    discounts:     getSheetDataAsObjects(ss, 'Discounts'),
+    settings:      readSettings(ss),
+    branches:      getBranchList(ss),
+    branchTables:  readSettingJson(ss, 'branch_tables', {}),
+    defaultBranch: defaultBranchId(ss)
   };
+}
+
+// ──────────────────────────────────────────────
+// สาขา / เมนูรายสาขา / รหัสเมนู / ลูกค้าสแกนจ่าย / ใบกำกับภาษี
+// (ตรรกะเดียวกับ api/_lib ฝั่ง SQL — ให้หน้าจอชุดใหม่ใช้กับ Google Sheet ได้ครบ)
+// ──────────────────────────────────────────────
+var MENU_HEADERS = ['id', 'category', 'name', 'nameEn', 'description', 'descriptionEn', 'price', 'image', 'isActive', 'bundledItems', 'popupConfig', 'prices', 'categories', 'printerId', 'branches', 'sortOrder'];
+var PRINTER_HEADERS = ['id', 'name', 'ip', 'type', 'printMode', 'branchId', 'categories'];
+var WASTE_HEADERS = ['timestamp', 'branch', 'itemName', 'category', 'qty', 'unit', 'note', 'staff', 'kind', 'itemType'];
+var BRANCH_HEADERS = ['id', 'name', 'billPrefix', 'phone', 'address', 'taxId', 'receiptFooter', 'isActive', 'posId'];
+var MENU_BRANCH_HEADERS = ['menuId', 'branchId', 'isAvailable', 'priceMap', 'printerId'];
+var KIOSK_PAYMENT_HEADERS = ['id', 'branchId', 'tableNo', 'dining', 'payloadJson', 'total', 'status', 'requestedAt', 'respondedAt', 'respondedBy', 'orderNumber'];
+var TAX_INVOICE_HEADERS = ['invoiceNo', 'orderNumber', 'branchId', 'issuedAt', 'buyerName', 'buyerTaxId', 'buyerAddress', 'buyerBranch', 'itemsJson', 'subtotal', 'vatRate', 'vatAmount', 'total', 'sellerJson', 'issuedBy', 'cancelled', 'cancelledAt', 'cancelReason'];
+var TAX_CUSTOMER_HEADERS = ['taxId', 'buyerBranch', 'name', 'address', 'phone', 'useCount', 'lastUsedAt'];
+var ITEM_ID_PREFIX = 'SN';
+
+// ชีตที่เก็บทุกช่องเป็นข้อความ — เลขผู้เสียภาษี 13 หลัก/เบอร์โทรขึ้นต้น 0/เวลา ISO ห้ามถูกชีตแปลงเป็นตัวเลขหรือวันที่
+function textSheet(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, sh.getMaxRows(), Math.max(headers.length, sh.getMaxColumns())).setNumberFormat('@');
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  return sh;
+}
+
+// เขียนหัวตารางชุดใหม่ทับ (เพิ่มคอลัมน์ต่อท้ายให้ชีตเดิม) โดยไม่แตะข้อมูล
+function ensureHeaders(sheet, headers) {
+  ensureColumns(sheet, headers.length);
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  return sheet;
+}
+
+function thaiTimeISO(date) {
+  return Utilities.formatDate(date || new Date(), 'Asia/Bangkok', "yyyy-MM-dd'T'HH:mm:ss") + '+07:00';
+}
+
+function asJson(v, fallback) {
+  if (v === null || v === undefined || v === '') return fallback;
+  if (typeof v !== 'string') return v;
+  try { return JSON.parse(v); } catch (e) { return fallback; }
+}
+
+function cleanText(v, max) { return String(v == null ? '' : v).trim().slice(0, max || 500); }
+
+function readSettingJson(ss, key, fallback) {
+  var sh = ss.getSheetByName('Settings');
+  if (!sh) return fallback;
+  var d = sh.getDataRange().getValues();
+  for (var i = 1; i < d.length; i++) {
+    if (d[i][0] === key) return asJson(d[i][1], fallback);
+  }
+  return fallback;
+}
+
+function writeSettingJson(ss, key, value) {
+  var sh = getOrCreateSheet(ss, 'Settings', ['key', 'value']);
+  var d = sh.getDataRange().getValues();
+  for (var i = 1; i < d.length; i++) {
+    if (d[i][0] === key) { sh.getRange(i + 1, 2).setValue(JSON.stringify(value)); return; }
+  }
+  sh.appendRow([key, JSON.stringify(value)]);
+}
+
+// ── สาขา ──
+function getBranchList(ss) {
+  return getSheetDataAsObjects(ss, 'Branches').map(function(b) {
+    return {
+      id: String(b.id || '').trim(), name: String(b.name || ''), billPrefix: String(b.billPrefix || ''),
+      phone: String(b.phone || ''), address: String(b.address || ''), taxId: String(b.taxId || ''),
+      receiptFooter: String(b.receiptFooter || ''), posId: String(b.posId || ''),
+      isActive: !(b.isActive === false || String(b.isActive).toUpperCase() === 'FALSE' || String(b.isActive) === '0')
+    };
+  }).filter(function(b) { return b.id; });
+}
+
+// สาขาหลัก = สาขาแรกที่เปิดใช้งาน ('' = ยังไม่ได้ตั้งสาขา)
+function defaultBranchId(ss) {
+  var list = getBranchList(ss).filter(function(b) { return b.isActive; });
+  return list.length ? list[0].id : '';
+}
+
+// ตัวนำหน้าเลขบิลของสาขา — ไม่ได้ตั้งใช้รหัสสาขา (ตรงกับฝั่งหน้าเว็บ)
+function cleanPrefix(v) { return String(v || '').trim().toUpperCase().replace(/\s+/g, '').replace(/[^0-9A-Zก-๙]/g, ''); }
+function branchBillPrefix(ss, branchId) {
+  var id = String(branchId || '');
+  var b = getBranchList(ss).filter(function(x) { return x.id === id; })[0];
+  return cleanPrefix(b && b.billPrefix) || cleanPrefix(id) || 'POS';
+}
+
+// ── เมนูรายสาขา ──
+function getMenuBranchRows(ss, branchId) {
+  if (!branchId) return [];
+  return getSheetDataAsObjects(ss, 'MenuBranch').filter(function(r) {
+    return String(r.branchId) === String(branchId);
+  }).map(function(r) {
+    var avail = r.isAvailable;
+    return {
+      menuId: String(r.menuId),
+      isAvailable: (avail === '' || avail === null || avail === undefined) ? null : !(avail === false || String(avail) === '0' || String(avail).toUpperCase() === 'FALSE'),
+      priceMap: asJson(r.priceMap, {}) || {},
+      printerId: r.printerId ? String(r.printerId) : ''
+    };
+  });
+}
+
+function norm(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+
+function applyBranchMenu(menu, rows, printers, branchId) {
+  if (!branchId) return menu;
+  var byMenu = {};
+  rows.forEach(function(r) { byMenu[r.menuId] = r; });
+  var mine = printers.filter(function(p) { return !p.branchId || String(p.branchId) === String(branchId); });
+  var mineIds = {};
+  mine.forEach(function(p) { mineIds[String(p.id)] = true; });
+  var localPrinterFor = function(printerId) {
+    var id = String(printerId || '');
+    if (!id || mineIds[id]) return id;
+    var source = printers.filter(function(p) { return String(p.id) === id; })[0];
+    var twin = source && mine.filter(function(p) { return norm(p.name) && norm(p.name) === norm(source.name); })[0];
+    return twin ? String(twin.id) : id;
+  };
+  var soldHere = function(item) {
+    var b = item.branches;
+    return !Array.isArray(b) || b.length === 0 || b.some(function(x) { return String(x) === String(branchId); });
+  };
+  return menu.filter(soldHere).map(function(item) {
+    var out = {};
+    for (var k in item) out[k] = item[k];
+    out.printerId = localPrinterFor(item.printerId);
+    var row = byMenu[String(item.id)];
+    if (!row) return out;
+    if (row.isAvailable === false) out.isActive = false;
+    if (row.printerId) out.printerId = row.printerId;
+    var map = row.priceMap || {};
+    var has = function(key) { return Object.prototype.hasOwnProperty.call(map, key) && map[key] !== '' && map[key] !== null && isFinite(Number(map[key])); };
+    if (Array.isArray(item.prices) && item.prices.length > 0) {
+      out.prices = item.prices.map(function(p) {
+        var name = String((p && p.name) || '');
+        if (!p || !has(name)) return p;
+        var q = {}; for (var kk in p) q[kk] = p[kk];
+        q.price = Number(map[name]);
+        return q;
+      });
+    }
+    if (has('')) out.price = Number(map['']);
+    return out;
+  });
+}
+
+// เมนูเรียงตามลำดับที่จัดในหน้าจัดการเมนู — ที่ยังไม่เคยจัดต่อท้ายตามลำดับแถว
+function sortMenuRows(menu) {
+  return menu.map(function(m, i) { return { m: m, i: i }; }).sort(function(a, b) {
+    var sa = Number(a.m.sortOrder), sb = Number(b.m.sortOrder);
+    var ha = a.m.sortOrder !== '' && a.m.sortOrder != null && isFinite(sa);
+    var hb = b.m.sortOrder !== '' && b.m.sortOrder != null && isFinite(sb);
+    if (ha && hb && sa !== sb) return sa - sb;
+    if (ha !== hb) return ha ? -1 : 1;
+    return a.i - b.i;
+  }).map(function(x) { return x.m; });
+}
+
+// รหัสถัดไปของเมนู/หมวดหมู่ (SN00001 …) — เมนูกับหมวดหมู่ใช้ชุดเลขเดียวกัน
+function nextItemIds(ss, count) {
+  var re = new RegExp('^' + ITEM_ID_PREFIX + '(\\d{5})$');
+  var max = 0;
+  var scan = function(name) {
+    var sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues().forEach(function(r) {
+      var m = re.exec(String(r[0] || '').trim());
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+  };
+  scan('Menu');
+  scan('Categories');
+  var ids = [];
+  for (var i = 1; i <= count; i++) {
+    var n = String(max + i);
+    while (n.length < 5) n = '0' + n;
+    ids.push(ITEM_ID_PREFIX + n);
+  }
+  return ids;
+}
+
+// แถวแรกที่ตรงเงื่อนไข → { row: เลขแถวในชีต, obj }
+function findRow(sheet, headers, match) {
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  for (var i = values.length - 1; i >= 0; i--) {
+    var obj = {};
+    headers.forEach(function(h, j) { obj[h] = values[i][j]; });
+    if (match(obj)) return { row: i + 2, obj: obj };
+  }
+  return null;
+}
+
+function writeRow(sheet, headers, rowNo, obj) {
+  sheet.getRange(rowNo, 1, 1, headers.length).setValues([headers.map(function(h) { return obj[h] == null ? '' : obj[h]; })]);
+}
+
+// ── ลูกค้าสแกน QR จ่ายเอง → พนักงานยืนยันยอด ──
+function kioskDisplayItems(items) {
+  return (Array.isArray(items) ? items : []).map(function(item) {
+    var qty = Number(item.quantity) || 1;
+    var unit = Number(item.food && item.food.price) || 0;
+    return { name: (item.food && item.food.name) || '', qty: qty, options: itemOptionText(item), amount: unit * qty };
+  });
+}
+
+function mapKioskPayment(r) {
+  var payload = asJson(r.payloadJson, {}) || {};
+  return {
+    id: String(r.id), branchId: String(r.branchId || ''), tableNo: String(r.tableNo || ''), dining: String(r.dining || ''),
+    total: Number(r.total) || 0, status: String(r.status || 'pending'), requestedAt: String(r.requestedAt || ''),
+    respondedAt: String(r.respondedAt || ''), respondedBy: String(r.respondedBy || ''), orderNumber: String(r.orderNumber || ''),
+    items: kioskDisplayItems(payload.items)
+  };
+}
+
+function kioskPaymentRequest(ss, data) {
+  var id = cleanText(data.sessionId, 60);
+  var items = Array.isArray(data.items) ? data.items : [];
+  var total = Math.round((Number(data.total) || 0) * 100) / 100;
+  if (!id) return { success: false, error: 'ไม่มีรหัสรายการ' };
+  if (items.length === 0) return { success: false, error: 'ไม่มีรายการอาหาร' };
+  if (!(total > 0)) return { success: false, error: 'ยอดชำระไม่ถูกต้อง' };
+  var branchId = String(data.branchId || data.branch || '').trim() || defaultBranchId(ss);
+  var now = thaiTimeISO();
+  var sh = textSheet(ss, 'KioskPayments', KIOSK_PAYMENT_HEADERS);
+  var row = {
+    id: id, branchId: branchId, tableNo: cleanText(data.tableNumber, 50), dining: cleanText(data.dining, 50),
+    payloadJson: JSON.stringify({ branchId: branchId, tableNumber: cleanText(data.tableNumber, 50), items: items, total: total, timestamp: data.timestamp || now }),
+    total: total, status: 'pending', requestedAt: now, respondedAt: '', respondedBy: '', orderNumber: ''
+  };
+  var found = findRow(sh, KIOSK_PAYMENT_HEADERS, function(o) { return String(o.id) === id; });
+  if (found) {
+    if (found.obj.status === 'approved') return { success: true, status: 'approved', orderNumber: String(found.obj.orderNumber || '') };
+    if (found.obj.status === 'approving') return { success: true, status: 'pending' };
+    writeRow(sh, KIOSK_PAYMENT_HEADERS, found.row, row);
+    return { success: true, status: 'pending' };
+  }
+  sh.appendRow(KIOSK_PAYMENT_HEADERS.map(function(h) { return row[h]; }));
+  return { success: true, status: 'pending' };
+}
+
+function getKioskPayment(ss, params) {
+  var id = cleanText(params.id, 60);
+  var found = findRow(ss.getSheetByName('KioskPayments'), KIOSK_PAYMENT_HEADERS, function(o) { return String(o.id) === id; });
+  if (!found) return { success: false, error: 'ไม่พบรายการ' };
+  var status = found.obj.status === 'approving' ? 'pending' : String(found.obj.status || 'pending');
+  return { success: true, status: status, orderNumber: String(found.obj.orderNumber || ''), total: Number(found.obj.total) || 0 };
+}
+
+// รายการที่รอยืนยันของสาขานี้ — รอนานสุดขึ้นก่อน (ตัดของเก่ากว่า 6 ชม.)
+function getPendingKioskPayments(ss, params) {
+  var branchId = cleanText(params.branch || params.branchId, 60);
+  var cutoff = thaiTimeISO(new Date(Date.now() - 6 * 3600 * 1000));
+  var list = getSheetDataAsObjects(ss, 'KioskPayments').filter(function(r) {
+    return String(r.status) === 'pending' && String(r.requestedAt || '') >= cutoff && (!branchId || String(r.branchId) === branchId);
+  }).sort(function(a, b) { return String(a.requestedAt).localeCompare(String(b.requestedAt)); });
+  return { success: true, payments: list.slice(0, 50).map(mapKioskPayment) };
+}
+
+// ยืนยัน / ปฏิเสธ — ผู้เรียกถือ LockService อยู่ ใครกดก่อนได้ คนหลังได้ข้อความว่าจัดการไปแล้ว
+function respondKioskPayment(ss, data) {
+  var id = cleanText(data.id, 60);
+  var by = cleanText(data.by, 120);
+  if (!id) return { success: false, error: 'ไม่ได้ระบุรายการ' };
+  var sh = ss.getSheetByName('KioskPayments');
+  var found = findRow(sh, KIOSK_PAYMENT_HEADERS, function(o) { return String(o.id) === id; });
+  if (!found) return { success: false, error: 'ไม่พบรายการ' };
+  var row = found.obj;
+  if (row.status === 'approved' && data.approve === true) return { success: true, status: 'approved', already: true, payment: mapKioskPayment(row) };
+  if (row.status !== 'pending') return { success: false, error: 'รายการนี้ถูกจัดการไปแล้ว' };
+
+  row.respondedAt = thaiTimeISO();
+  row.respondedBy = by;
+  if (data.approve !== true) {
+    row.status = 'rejected';
+    writeRow(sh, KIOSK_PAYMENT_HEADERS, found.row, row);
+    return { success: true, status: 'rejected' };
+  }
+
+  var payload = asJson(row.payloadJson, {}) || {};
+  var result;
+  try {
+    result = kioskPaidOrderCore(ss, {
+      tableNumber: payload.tableNumber, items: payload.items, total: payload.total, timestamp: payload.timestamp,
+      branchId: row.branchId || payload.branchId, sessionId: id, paymentMethod: 'เงินโอน (QR พนักงานยืนยัน)'
+    });
+  } catch (err) {
+    result = { success: false, error: String(err) };
+  }
+  if (!result || !result.success) return { success: false, error: (result && result.error) || 'บันทึกบิลไม่สำเร็จ' };
+  row.status = 'approved';
+  row.orderNumber = result.orderNumber || '';
+  writeRow(sh, KIOSK_PAYMENT_HEADERS, found.row, row);
+  return { success: true, status: 'approved', payment: mapKioskPayment(row) };
+}
+
+// ── ใบกำกับภาษีเต็มรูป ──
+// ยอดเงิน/รายการคำนวณจากบิลจริงในชีต Orders — ไม่เชื่อตัวเลขที่หน้าเว็บส่งมา
+// ราคาขายรวม VAT แล้ว → มูลค่าก่อน VAT = ยอดบิล × 100 / (100 + อัตรา)
+function round2(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+
+function mapTaxInvoice(r) {
+  return {
+    invoiceNo: String(r.invoiceNo), orderNumber: String(r.orderNumber), branchId: String(r.branchId || ''), issuedAt: String(r.issuedAt || ''),
+    buyer: { name: String(r.buyerName || ''), taxId: String(r.buyerTaxId || ''), address: String(r.buyerAddress || ''), branch: String(r.buyerBranch || '') },
+    items: asJson(r.itemsJson, []) || [], subtotal: Number(r.subtotal) || 0, vatRate: Number(r.vatRate) || 0,
+    vatAmount: Number(r.vatAmount) || 0, total: Number(r.total) || 0, seller: asJson(r.sellerJson, {}) || {},
+    issuedBy: String(r.issuedBy || ''), cancelled: String(r.cancelled) === '1' || r.cancelled === true || String(r.cancelled).toUpperCase() === 'TRUE',
+    cancelledAt: String(r.cancelledAt || ''), cancelReason: String(r.cancelReason || '')
+  };
+}
+
+function listTaxInvoices(ss) {
+  return getSheetDataAsObjects(ss, 'TaxInvoices').reverse().slice(0, 5000).map(mapTaxInvoice);
+}
+
+function taxInvoiceItems(rows) {
+  var items = [];
+  rows.forEach(function(row) {
+    var detail = String(row.ItemDetail || '').trim();
+    if (!detail) return;
+    if (detail.charAt(0) === '↳') {
+      var last = items[items.length - 1];
+      var opt = detail.replace(/^↳\s*/, '');
+      if (last && opt) last.name += ' (' + opt + ')';
+      return;
+    }
+    var qty = Number(row.Quantity) || 1;
+    var amount = round2(row.Price);
+    items.push({ name: detail, qty: qty, unitPrice: round2(amount / qty), amount: amount });
+  });
+  return items;
+}
+
+function issueTaxInvoice(ss, data) {
+  var orderNumber = cleanText(data.orderNumber, 60);
+  var buyer = data.buyer || {};
+  var buyerName = cleanText(buyer.name, 300);
+  var buyerTaxId = cleanText(buyer.taxId, 40).replace(/[\s-]/g, '');
+  var buyerAddress = cleanText(buyer.address, 1000);
+  var buyerBranch = cleanText(buyer.branch, 100) || 'สำนักงานใหญ่';
+  if (!orderNumber) return { success: false, error: 'ไม่ได้ระบุเลขบิล' };
+  if (!buyerName || !buyerAddress) return { success: false, error: 'กรุณากรอกชื่อและที่อยู่ผู้ซื้อ' };
+  if (!/^\d{13}$/.test(buyerTaxId)) return { success: false, error: 'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก' };
+
+  var sh = textSheet(ss, 'TaxInvoices', TAX_INVOICE_HEADERS);
+  var existing = findRow(sh, TAX_INVOICE_HEADERS, function(o) { return String(o.orderNumber) === orderNumber && !mapTaxInvoice(o).cancelled; });
+  if (existing) return { success: true, existing: true, invoice: mapTaxInvoice(existing.obj) };
+
+  var rows = getSheetDataAsObjects(ss, 'Orders').filter(function(r) { return String(r.OrderNumber) === orderNumber; });
+  if (!rows.length) return { success: false, error: 'ไม่พบบิล ' + orderNumber };
+  if (rows.every(function(r) { return String(r.Status || '').toLowerCase() === 'cancelled'; })) {
+    return { success: false, error: 'บิลนี้ถูกยกเลิกแล้ว ออกใบกำกับภาษีไม่ได้' };
+  }
+  var total = round2(rows[0].TotalAmount);
+  if (!(total > 0)) return { success: false, error: 'ยอดบิลเป็นศูนย์ ออกใบกำกับภาษีไม่ได้' };
+  var items = taxInvoiceItems(rows);
+  var diff = round2(total - items.reduce(function(s, i) { return s + i.amount; }, 0));
+  if (Math.abs(diff) >= 0.01) items.push({ name: diff < 0 ? 'ส่วนลด' : 'ค่าบริการ / ภาษีที่บวกตอนชำระ', qty: 1, unitPrice: diff, amount: diff, adjustment: true });
+
+  var settings = readSettings(ss) || {};
+  var rateSetting = Number(settings.vat && settings.vat.rate);
+  var vatRate = isFinite(rateSetting) && rateSetting > 0 ? rateSetting : 7;
+  var subtotal = round2(total * 100 / (100 + vatRate));
+  var vatAmount = round2(total - subtotal);
+
+  // ชีต Orders ยังไม่มีคอลัมน์สาขา → ใช้สาขาหลัก
+  var mainBranch = defaultBranchId(ss);
+  var branchId = String(rows[0].BranchId || '').trim() || mainBranch;
+  var b = getBranchList(ss).filter(function(x) { return x.id === branchId; })[0] || {};
+  var seller = {
+    name: String(b.name || branchId || ''), address: String(b.address || ''), phone: String(b.phone || ''), taxId: String(b.taxId || ''),
+    branchLabel: !mainBranch || branchId === mainBranch ? 'สำนักงานใหญ่' : ('สาขา ' + String(b.name || branchId))
+  };
+  if (!/^\d{13}$/.test(seller.taxId.replace(/[\s-]/g, ''))) {
+    return { success: false, error: 'ยังไม่ได้ตั้งเลขประจำตัวผู้เสียภาษีของร้าน — ไปตั้งที่ หลังบ้าน > สาขา ก่อน' };
+  }
+
+  var now = thaiTimeISO();
+  var prefix = cleanPrefix(b.billPrefix).replace(/[^A-Z0-9]/g, '');
+  var base = (prefix ? prefix + '-' : '') + 'TX' + now.slice(2, 4) + now.slice(5, 7) + '-';
+  var max = 0;
+  getSheetDataAsObjects(ss, 'TaxInvoices').forEach(function(r) {
+    var no = String(r.invoiceNo || '');
+    if (no.indexOf(base) === 0) { var n = parseInt(no.slice(base.length), 10); if (!isNaN(n) && n > max) max = n; }
+  });
+  var seq = String(max + 1); while (seq.length < 4) seq = '0' + seq;
+  var row = {
+    invoiceNo: base + seq, orderNumber: orderNumber, branchId: branchId, issuedAt: now, buyerName: buyerName, buyerTaxId: buyerTaxId,
+    buyerAddress: buyerAddress, buyerBranch: buyerBranch, itemsJson: JSON.stringify(items), subtotal: subtotal, vatRate: vatRate,
+    vatAmount: vatAmount, total: total, sellerJson: JSON.stringify(seller), issuedBy: cleanText(data.issuedBy, 120), cancelled: '0',
+    cancelledAt: '', cancelReason: ''
+  };
+  sh.appendRow(TAX_INVOICE_HEADERS.map(function(h) { return String(row[h]); }));
+  try { upsertTaxCustomer(ss, { taxId: buyerTaxId, branch: buyerBranch, name: buyerName, address: buyerAddress, phone: cleanText(buyer.phone, 60) }, true); }
+  catch (err) { Logger.log('saveTaxCustomer: ' + err); }
+  return { success: true, invoice: mapTaxInvoice(row) };
+}
+
+function cancelTaxInvoice(ss, data) {
+  var invoiceNo = cleanText(data.invoiceNo, 60);
+  var reason = cleanText(data.reason, 500);
+  if (!invoiceNo) return { success: false, error: 'ไม่ได้ระบุเลขที่ใบกำกับภาษี' };
+  if (!reason) return { success: false, error: 'กรุณาระบุเหตุผลที่ยกเลิก' };
+  var sh = ss.getSheetByName('TaxInvoices');
+  var found = findRow(sh, TAX_INVOICE_HEADERS, function(o) { return String(o.invoiceNo) === invoiceNo && !mapTaxInvoice(o).cancelled; });
+  if (!found) return { success: false, error: 'ไม่พบใบกำกับนี้ หรือถูกยกเลิกไปแล้ว' };
+  found.obj.cancelled = '1'; found.obj.cancelledAt = thaiTimeISO(); found.obj.cancelReason = reason;
+  writeRow(sh, TAX_INVOICE_HEADERS, found.row, found.obj);
+  return { success: true };
+}
+
+// แก้ข้อมูลผู้ซื้อ = ยกเลิกใบเดิมแล้วออกเลขใหม่ ออกใบใหม่ไม่ได้ → คืนสถานะใบเดิม
+function reissueTaxInvoice(ss, data) {
+  var invoiceNo = cleanText(data.invoiceNo, 60);
+  var buyer = data.buyer || {};
+  if (!invoiceNo) return { success: false, error: 'ไม่ได้ระบุเลขที่ใบกำกับภาษี' };
+  if (!cleanText(buyer.name, 300) || !cleanText(buyer.address, 1000)) return { success: false, error: 'กรุณากรอกชื่อและที่อยู่ผู้ซื้อ' };
+  if (!/^\d{13}$/.test(cleanText(buyer.taxId, 40).replace(/[\s-]/g, ''))) return { success: false, error: 'เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก' };
+  var sh = ss.getSheetByName('TaxInvoices');
+  var found = findRow(sh, TAX_INVOICE_HEADERS, function(o) { return String(o.invoiceNo) === invoiceNo && !mapTaxInvoice(o).cancelled; });
+  if (!found) return { success: false, error: 'ไม่พบใบกำกับนี้ หรือถูกยกเลิกไปแล้ว' };
+  var cancelled = cancelTaxInvoice(ss, { invoiceNo: invoiceNo, reason: 'แก้ไขข้อมูลผู้ซื้อ — ออกใบใหม่แทน' });
+  if (!cancelled.success) return cancelled;
+  var result;
+  try { result = issueTaxInvoice(ss, { orderNumber: String(found.obj.orderNumber), buyer: buyer, issuedBy: data.issuedBy }); }
+  catch (err) { result = { success: false, error: String(err) }; }
+  var again = findRow(sh, TAX_INVOICE_HEADERS, function(o) { return String(o.invoiceNo) === invoiceNo; });
+  if (!result.success) {
+    if (again) { again.obj.cancelled = '0'; again.obj.cancelledAt = ''; again.obj.cancelReason = ''; writeRow(sh, TAX_INVOICE_HEADERS, again.row, again.obj); }
+    return result;
+  }
+  if (again) { again.obj.cancelReason = 'แก้ไขข้อมูลผู้ซื้อ — ออกใบใหม่ ' + result.invoice.invoiceNo; writeRow(sh, TAX_INVOICE_HEADERS, again.row, again.obj); }
+  return { success: true, invoice: result.invoice, replaced: invoiceNo };
+}
+
+// ── ลูกค้าใบกำกับภาษี ──
+function listTaxCustomers(ss) {
+  return getSheetDataAsObjects(ss, 'TaxCustomers').map(function(r) {
+    return { taxId: String(r.taxId), branch: String(r.buyerBranch || 'สำนักงานใหญ่'), name: String(r.name || ''), address: String(r.address || ''),
+      phone: String(r.phone || ''), useCount: Number(r.useCount) || 0, lastUsedAt: String(r.lastUsedAt || '') };
+  }).sort(function(a, b) { return String(b.lastUsedAt).localeCompare(String(a.lastUsedAt)) || a.name.localeCompare(b.name); }).slice(0, 3000);
+}
+
+function upsertTaxCustomer(ss, c, used) {
+  var taxId = cleanText(c.taxId, 20).replace(/[\s-]/g, '');
+  var branch = cleanText(c.branch, 100) || 'สำนักงานใหญ่';
+  if (!/^\d{13}$/.test(taxId)) throw new Error('เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก');
+  var sh = textSheet(ss, 'TaxCustomers', TAX_CUSTOMER_HEADERS);
+  var found = findRow(sh, TAX_CUSTOMER_HEADERS, function(o) { return String(o.taxId) === taxId && String(o.buyerBranch) === branch; });
+  var now = thaiTimeISO();
+  var row = found ? found.obj : { taxId: taxId, buyerBranch: branch, useCount: '0', lastUsedAt: '' };
+  row.name = cleanText(c.name, 300); row.address = cleanText(c.address, 1000); row.phone = cleanText(c.phone, 60);
+  if (used) { row.useCount = String((Number(row.useCount) || 0) + 1); row.lastUsedAt = now; }
+  if (found) writeRow(sh, TAX_CUSTOMER_HEADERS, found.row, row);
+  else sh.appendRow(TAX_CUSTOMER_HEADERS.map(function(h) { return String(row[h] == null ? '' : row[h]); }));
 }
 
 // ──────────────────────────────────────────────
@@ -277,19 +761,21 @@ function doGet(e) {
   // ── ข้อมูล "เย็น" — เปลี่ยนเฉพาะตอนแก้หลังบ้าน อ่านจาก cache 5 นาที ──
   // หน้าบ้านดึงตอนเปิดแอปครั้งเดียว แล้วดึงซ้ำทุก 5 นาที
   if (action === 'getStatic') {
+    var staticBranch = String((e && e.parameter && (e.parameter.branch || e.parameter.branchId)) || '').trim();
     if (e && e.parameter && e.parameter.fresh === '1') clearStaticCache();
-    var cached = cacheGetLong(STATIC_CACHE_KEY);
+    var staticKey = staticCacheKey(staticBranch);
+    var cached = cacheGetLong(staticKey);
     if (cached) {
       return ContentService.createTextOutput(cached).setMimeType(ContentService.MimeType.JSON);
     }
-    var staticJson = JSON.stringify(buildStaticData(ss));
-    cachePutLong(STATIC_CACHE_KEY, staticJson);
+    var staticJson = JSON.stringify(buildStaticData(ss, staticBranch));
+    cachePutLong(staticKey, staticJson);
     return ContentService.createTextOutput(staticJson).setMimeType(ContentService.MimeType.JSON);
   }
 
   // getAllData — ก้อนรวมแบบเดิม ยังใช้ได้ (หน้าหลังบ้านหลายหน้าเรียกตัวนี้)
   if (action === 'getAllData') {
-    var data = buildStaticData(ss);
+    var data = buildStaticData(ss, '');
     data.tableOrders = getSheetDataAsObjects(ss, 'TableOrders');
     // Orders ดึงแค่ 2000 บิลล่าสุดพอ — รายงานย้อนหลังใช้ action getReportData ซึ่งอ่านทั้งชีทอยู่แล้ว ไม่กระทบ
     data.orders      = getSheetDataAsObjects(ss, 'Orders', 2000);
@@ -330,7 +816,12 @@ function doGet(e) {
   if (action === 'getLiquorRecords') return _bomJson({ success: true, records: getSheetDataAsObjects(ss, 'LiquorStorage') });
 
   // รายการทิ้งของเสีย (Waste) — คืนทั้งหมด
-  if (action === 'getWasteRecords') return _bomJson({ success: true, records: getSheetDataAsObjects(ss, 'Waste') });
+  // ?kind=prep → บันทึกการเตรียม / ?kind=count → บันทึกการนับสต็อก / ไม่ส่ง = บันทึกการทิ้ง (แถวเก่าที่ kind ว่าง = ทิ้ง)
+  if (action === 'getWasteRecords') {
+    var wKind = (e && e.parameter && (e.parameter.kind === 'prep' || e.parameter.kind === 'count')) ? e.parameter.kind : 'waste';
+    var wRows = getSheetDataAsObjects(ss, 'Waste').filter(function(r) { return (String(r.kind || '') || 'waste') === wKind; });
+    return _bomJson({ success: true, records: wRows.slice(-1000) });
+  }
 
   // คำขออนุมัติ QR — คืนเฉพาะที่ยัง pending หรือเพิ่งตอบใน 10 นาทีล่าสุด
   if (action === 'getPaymentApprovals') {
@@ -413,6 +904,21 @@ function doGet(e) {
     var expRows  = expSheet.getRange(expStart, 1, expCount, expLastCol).getValues();
     return _bomJson({ success: true, headers: expHeaders, rows: expRows, total: expTotal, offset: expOffset, count: expCount });
   }
+
+  // ── ของที่เพิ่มมาพร้อมหน้าจอชุด HumLai-POS ──
+  var gp = (e && e.parameter) || {};
+  if (action === 'getUsers')      return _bomJson({ success: true, users: getSheetDataAsObjects(ss, 'Users') });
+  if (action === 'nextId')        return _bomJson({ success: true, ids: nextItemIds(ss, Math.min(50, Math.max(1, Number(gp.count) || 1))) });
+  if (action === 'getMenuBranch') return _bomJson({ success: true, rows: getMenuBranchRows(ss, String(gp.branch || gp.branchId || '').trim()) });
+  if (action === 'getIngredientNames') {
+    var ingList = getIngredientsList();
+    var ingRows = (ingList && ingList.ingredients) || [];
+    return _bomJson({ success: true, ingredients: ingRows.map(function(r) { return { id: String(r.id), name: r.name || '', unit: r.unit || '', category: r.category || '' }; }) });
+  }
+  if (action === 'getKioskPayment')         return _bomJson(getKioskPayment(ss, gp));
+  if (action === 'getPendingKioskPayments') return _bomJson(getPendingKioskPayments(ss, gp));
+  if (action === 'getTaxInvoices')          return _bomJson({ success: true, invoices: listTaxInvoices(ss) });
+  if (action === 'getTaxCustomers')         return _bomJson({ success: true, customers: listTaxCustomers(ss) });
 
   return _bomJson({ error: 'Unknown GET action' });
 }
@@ -509,6 +1015,75 @@ function getSheetDataAsObjects(ss, sheetName, maxRows) {
   return result;
 }
 
+// บันทึกออเดอร์คีออสที่ชำระแล้ว (บิล + ยอดชำระ + รายการโต๊ะ + ตัดสต็อก)
+// ผู้เรียกต้องถือ LockService อยู่ ไม่งั้นสองคำขอพร้อมกันจะได้เลขบิลเดียวกัน
+function kioskPaidOrderCore(ss, postData) {
+  var kTable  = String(postData.tableNumber || '');
+  var kItems  = postData.items || [];
+  var kTotal  = Number(postData.total) || 0;
+  var kMethod = postData.paymentMethod || 'เงินโอน (QR)';
+  var kTime   = postData.timestamp || new Date().toISOString();
+  // เลขบิล = เลขที่ใบกำกับภาษีอย่างย่อ ต้องเรียงต่อเนื่องชุดเดียวต่อสาขา → ใช้ตัวนำหน้าเลขบิลของสาขา (หลังบ้าน > สาขา)
+  var kPrefix = postData.prefix
+    ? (String(postData.prefix).toUpperCase().replace(/[^0-9A-Zก-๙]/g, '') || 'SELF')
+    : branchBillPrefix(ss, postData.branchId || postData.branch || defaultBranchId(ss));
+  var kBy     = 'Self-Order';
+  var kSessionId = String(postData.sessionId || Date.now());
+  if (kItems.length === 0) return { success: false, error: 'ไม่มีรายการอาหารในออเดอร์' };
+
+  // ยิงซ้ำเพราะเน็ตมือถือหลุดกลางทางเป็นเรื่องปกติ — ถ้า sessionId นี้บันทึกไปแล้ว
+  // ให้ตอบเลขบิลเดิมกลับไป ไม่ออกบิลใหม่ซ้อน (ลูกค้าโอนเงินมาครั้งเดียว)
+  var kDup = findKioskOrderBySession(ss, kSessionId);
+  if (kDup) return { success: true, orderNumber: kDup, duplicate: true };
+
+  var kOrderNo = nextOrderNumber(ss, kPrefix);
+  var kName    = kTable ? ('โต๊ะ ' + kTable + ' (สั่งเอง)') : 'สั่งเอง';
+  var kAddr    = kTable ? ('โต๊ะ ' + kTable) : 'สั่งเอง';
+
+  // 1) บิลในชีต Orders — คอลัมน์เรียงตามหัวตาราง Orders เป๊ะ ๆ
+  var ordersSheet = getOrCreateSheet(ss, 'Orders', ['Timestamp', 'OrderNumber', 'CustomerName', 'Address', 'ItemDetail', 'DiningOption', 'Price', 'TotalAmount', 'Status', 'OrderStartTime', 'CompletionTime', 'RecordedBy', 'Quantity']);
+  kItems.forEach(function(item) {
+    var qty     = Number(item.quantity) || 1;
+    var unit    = Number(item.food && item.food.price) || 0;
+    var dining  = (item.dining && item.dining.name) ? item.dining.name : 'ทานที่ร้าน';
+    ordersSheet.appendRow([kTime, kOrderNo, kName, kAddr, (item.food && item.food.name) || '', dining, unit * qty, kTotal, 'Pending', kTime, '', kBy, qty]);
+    var opt = itemOptionText(item);
+    if (opt) ordersSheet.appendRow([kTime, kOrderNo, kName, kAddr, '↳ ' + opt, dining, 0, kTotal, 'Pending', kTime, '', kBy, '']);
+  });
+
+  // 2) ยอดชำระ — ผูกกับกะที่เปิดอยู่ เพื่อให้สรุปกะและรายงานนับรวมยอดจากคีออสด้วย
+  var paySh = getOrCreateSheet(ss, 'PaymentSummary', ['timestamp','orderNumber','tableNo','paymentMethod','grandTotal','staff','shiftId','splitDetail']);
+  paySh.appendRow([kTime, kOrderNo, kTable, kMethod, kTotal, kBy, openShiftId(ss), '']);
+
+  // 3) รายการรายโต๊ะ สถานะ paid — โต๊ะยังโชว์ว่ามีลูกค้า แต่ไม่เข้าไปรวมในยอดที่ต้องเก็บ
+  var tblSheet  = ss.getSheetByName('TableOrders');
+  if (tblSheet) {
+    kItems.forEach(function(item) {
+      var opt = itemOptionText(item);
+      var paidNote = '💳 ชำระแล้ว ' + kOrderNo;
+      tblSheet.appendRow([
+        kTable, kSessionId, (item.food && item.food.name) || '', (item.food && item.food.nameEn) || '',
+        Number(item.food && item.food.price) || 0, Number(item.quantity) || 1,
+        opt ? (opt + ' | ' + paidNote) : paidNote,
+        kTime, 'paid', kBy
+      ]);
+    });
+  }
+
+  // 4) ตัดสต็อกตามสูตร BOM เหมือนบิลที่แคชเชียร์ปิดเอง — ถ้าร้านยังไม่ได้ตั้ง BOM จะข้ามไปเฉย ๆ
+  // ห่อ try ไว้ต่างหาก เพราะบิลกับยอดเงินบันทึกไปแล้ว ห้ามล้มทั้งคำขอเพราะตัดสต็อกไม่ได้
+  try {
+    var kDeduct = [];
+    kItems.forEach(function(item) {
+      if (item.food && item.food.id) kDeduct.push({ menuId: String(item.food.id), menuName: item.food.name || '', qty: Number(item.quantity) || 1 });
+    });
+    if (kDeduct.length > 0) deductStock({ orderNumber: kOrderNo, tableNo: kTable, items: kDeduct });
+  } catch (stockErr) {
+    Logger.log('kioskPaidOrder deductStock: ' + stockErr);
+  }
+  return { success: true, orderNumber: kOrderNo };
+}
+
 // ──────────────────────────────────────────────
 // doPost
 // ──────────────────────────────────────────────
@@ -534,7 +1109,8 @@ function doPost(e) {
     'saveCategories', 'upsertCategory', 'deleteCategory',
     'savePromotions', 'upsertPromotion', 'deletePromotion',
     'saveUsers', 'savePrinters', 'saveDiscounts', 'saveSettings',
-    'resetAllSheetData'
+    'resetAllSheetData',
+    'saveBranches', 'saveBranchTables', 'saveMenuBranch', 'saveMenuOrder'
   ];
   if (STATIC_WRITE_ACTIONS.indexOf(action) !== -1) clearStaticCache();
 
@@ -552,73 +1128,162 @@ function doPost(e) {
       return _bomJson({ success: false, error: 'ระบบกำลังบันทึกออเดอร์อื่นอยู่ กรุณาลองใหม่อีกครั้ง' });
     }
     try {
-      var kTable  = String(postData.tableNumber || '');
-      var kItems  = postData.items || [];
-      var kTotal  = Number(postData.total) || 0;
-      var kMethod = postData.paymentMethod || 'เงินโอน (QR)';
-      var kTime   = postData.timestamp || new Date().toISOString();
-      var kPrefix = String(postData.prefix || 'SELF').toUpperCase().replace(/[^0-9A-Zก-๙]/g, '') || 'SELF';
-      var kBy     = 'Self-Order';
-      var kSessionId = String(postData.sessionId || Date.now());
-      if (kItems.length === 0) return _bomJson({ success: false, error: 'ไม่มีรายการอาหารในออเดอร์' });
-
-      // ยิงซ้ำเพราะเน็ตมือถือหลุดกลางทางเป็นเรื่องปกติ — ถ้า sessionId นี้บันทึกไปแล้ว
-      // ให้ตอบเลขบิลเดิมกลับไป ไม่ออกบิลใหม่ซ้อน (ลูกค้าโอนเงินมาครั้งเดียว)
-      var kDup = findKioskOrderBySession(ss, kSessionId);
-      if (kDup) return _bomJson({ success: true, orderNumber: kDup, duplicate: true });
-
-      var kOrderNo = nextOrderNumber(ss, kPrefix);
-      var kName    = kTable ? ('โต๊ะ ' + kTable + ' (สั่งเอง)') : 'สั่งเอง';
-      var kAddr    = kTable ? ('โต๊ะ ' + kTable) : 'สั่งเอง';
-
-      // 1) บิลในชีต Orders — คอลัมน์เรียงตามหัวตาราง Orders เป๊ะ ๆ
-      var ordersSheet = getOrCreateSheet(ss, 'Orders', ['Timestamp', 'OrderNumber', 'CustomerName', 'Address', 'ItemDetail', 'DiningOption', 'Price', 'TotalAmount', 'Status', 'OrderStartTime', 'CompletionTime', 'RecordedBy', 'Quantity']);
-      kItems.forEach(function(item) {
-        var qty     = Number(item.quantity) || 1;
-        var unit    = Number(item.food && item.food.price) || 0;
-        var dining  = (item.dining && item.dining.name) ? item.dining.name : 'ทานที่ร้าน';
-        ordersSheet.appendRow([kTime, kOrderNo, kName, kAddr, (item.food && item.food.name) || '', dining, unit * qty, kTotal, 'Pending', kTime, '', kBy, qty]);
-        var opt = itemOptionText(item);
-        if (opt) ordersSheet.appendRow([kTime, kOrderNo, kName, kAddr, '↳ ' + opt, dining, 0, kTotal, 'Pending', kTime, '', kBy, '']);
-      });
-
-      // 2) ยอดชำระ — ผูกกับกะที่เปิดอยู่ เพื่อให้สรุปกะและรายงานนับรวมยอดจากคีออสด้วย
-      var paySh = getOrCreateSheet(ss, 'PaymentSummary', ['timestamp','orderNumber','tableNo','paymentMethod','grandTotal','staff','shiftId','splitDetail']);
-      paySh.appendRow([kTime, kOrderNo, kTable, kMethod, kTotal, kBy, openShiftId(ss), '']);
-
-      // 3) รายการรายโต๊ะ สถานะ paid — โต๊ะยังโชว์ว่ามีลูกค้า แต่ไม่เข้าไปรวมในยอดที่ต้องเก็บ
-      var tblSheet  = ss.getSheetByName('TableOrders');
-      if (tblSheet) {
-        kItems.forEach(function(item) {
-          var opt = itemOptionText(item);
-          var paidNote = '💳 ชำระแล้ว ' + kOrderNo;
-          tblSheet.appendRow([
-            kTable, kSessionId, (item.food && item.food.name) || '', (item.food && item.food.nameEn) || '',
-            Number(item.food && item.food.price) || 0, Number(item.quantity) || 1,
-            opt ? (opt + ' | ' + paidNote) : paidNote,
-            kTime, 'paid', kBy
-          ]);
-        });
-      }
-
-      // 4) ตัดสต็อกตามสูตร BOM เหมือนบิลที่แคชเชียร์ปิดเอง — ถ้าร้านยังไม่ได้ตั้ง BOM จะข้ามไปเฉย ๆ
-      // ห่อ try ไว้ต่างหาก เพราะบิลกับยอดเงินบันทึกไปแล้ว ห้ามล้มทั้งคำขอเพราะตัดสต็อกไม่ได้
-      try {
-        var kDeduct = [];
-        kItems.forEach(function(item) {
-          if (item.food && item.food.id) kDeduct.push({ menuId: String(item.food.id), menuName: item.food.name || '', qty: Number(item.quantity) || 1 });
-        });
-        if (kDeduct.length > 0) deductStock({ orderNumber: kOrderNo, tableNo: kTable, items: kDeduct });
-      } catch (stockErr) {
-        Logger.log('kioskPaidOrder deductStock: ' + stockErr);
-      }
-
-      return _bomJson({ success: true, orderNumber: kOrderNo });
+      return _bomJson(kioskPaidOrderCore(ss, postData));
     } catch (kErr) {
       return _bomJson({ success: false, error: String(kErr) });
     } finally {
       try { kLock.releaseLock(); } catch (relErr) {}
     }
+  }
+
+  // ── ของที่เพิ่มมาพร้อมหน้าจอชุด HumLai-POS ──
+
+  // ล็อกอิน: เช็กรหัสที่นี่ หน้าเว็บไม่ได้รับรหัสพนักงานจาก getStatic แล้ว
+  // (Google Sheet ไม่มีการตรวจสิทธิ์รายคำสั่งแบบฝั่ง SQL — token ใช้แค่ให้หน้าเว็บรู้ว่าล็อกอินผ่านแล้ว)
+  if (action === 'login') {
+    var lUserId = String(postData.userId == null ? '' : postData.userId).trim();
+    var lPin = String(postData.pin == null ? '' : postData.pin);
+    if (!lUserId || !lPin) return _bomJson({ success: false, error: 'กรุณาเลือกผู้ใช้และกรอกรหัส' });
+    var lUser = getSheetDataAsObjects(ss, 'Users').filter(function(u) { return String(u.id) === lUserId; })[0];
+    if (!lUser || String(lUser.pin == null ? '' : lUser.pin) === '' || String(lUser.pin) !== lPin) {
+      return _bomJson({ success: false, error: 'รหัสผ่านไม่ถูกต้อง' });
+    }
+    var lBool = function(v) { return v === true || String(v).toUpperCase() === 'TRUE' || String(v) === '1'; };
+    return _bomJson({
+      success: true,
+      token: Utilities.getUuid(),
+      user: {
+        id: /^\d{1,15}$/.test(String(lUser.id)) ? Number(lUser.id) : String(lUser.id),
+        username: String(lUser.username || ''),
+        branch: String(lUser.branch || '').trim(),
+        canCheckout: lUser.canCheckout === '' || lUser.canCheckout == null ? true : lBool(lUser.canCheckout),
+        isAdmin: lBool(lUser.isAdmin),
+        isCashier: lBool(lUser.isCashier)
+      }
+    });
+  }
+
+  // สาขา — id ต้องไม่ซ้ำและไม่ว่าง (ผูกกับผู้ใช้/บิล/ผังโต๊ะ)
+  if (action === 'saveBranches') {
+    var brList = Array.isArray(postData.branches) ? postData.branches : [];
+    var brSeen = {};
+    for (var bi = 0; bi < brList.length; bi++) {
+      var brId = String(brList[bi].id || '').trim();
+      if (!brId) return _bomJson({ success: false, error: 'มีสาขาที่ยังไม่ได้ใส่รหัส' });
+      if (brSeen[brId.toLowerCase()]) return _bomJson({ success: false, error: 'รหัสสาขา "' + brId + '" ซ้ำกัน' });
+      brSeen[brId.toLowerCase()] = true;
+    }
+    var brSheet = textSheet(ss, 'Branches', BRANCH_HEADERS);
+    brSheet.clearContents();
+    brSheet.getRange(1, 1, 1, BRANCH_HEADERS.length).setValues([BRANCH_HEADERS]);
+    if (brList.length) {
+      brSheet.getRange(2, 1, brList.length, BRANCH_HEADERS.length).setNumberFormat('@').setValues(brList.map(function(b) {
+        return [String(b.id).trim(), b.name || '', String(b.billPrefix || '').trim().toUpperCase(), b.phone || '', b.address || '',
+                b.taxId || '', b.receiptFooter || '', b.isActive === false ? 'FALSE' : 'TRUE', b.posId || ''].map(String);
+      }));
+    }
+    return _bomJson({ success: true });
+  }
+
+  // ผังโต๊ะของสาขาหนึ่ง — เขียนทับเฉพาะของสาขานั้น
+  if (action === 'saveBranchTables') {
+    if (!Array.isArray(postData.tables)) return _bomJson({ success: false, error: 'ไม่มีรายการโต๊ะ' });
+    var btBranch = String(postData.branchId || postData.branch || '').trim() || defaultBranchId(ss);
+    if (!btBranch) return _bomJson({ success: false, error: 'ยังไม่มีสาขาในระบบ — ตั้งค่าสาขาก่อน' });
+    var btAll = readSettingJson(ss, 'branch_tables', {}) || {};
+    btAll[btBranch] = postData.tables;
+    writeSettingJson(ss, 'branch_tables', btAll);
+    return _bomJson({ success: true, branchId: btBranch });
+  }
+
+  // เมนูรายสาขา — เขียนทับเฉพาะของสาขานั้น เก็บเฉพาะเมนูที่ปรับจริง
+  if (action === 'saveMenuBranch') {
+    var mbBranch = String(postData.branchId || postData.branch || '').trim() || defaultBranchId(ss);
+    if (!mbBranch) return _bomJson({ success: false, error: 'ยังไม่มีสาขาในระบบ — ตั้งค่าสาขาก่อน' });
+    var mbRows = (Array.isArray(postData.rows) ? postData.rows : []).map(function(r) {
+      var pm = {};
+      var src = (r && r.priceMap && typeof r.priceMap === 'object') ? r.priceMap : {};
+      Object.keys(src).forEach(function(k) { var v = src[k]; if (v !== '' && v !== null && v !== undefined && isFinite(Number(v))) pm[k] = Number(v); });
+      return {
+        menuId: String(r && r.menuId != null ? r.menuId : '').trim(),
+        isAvailable: r && r.isAvailable === false ? '0' : '',
+        priceMap: Object.keys(pm).length ? JSON.stringify(pm) : '',
+        printerId: String((r && r.printerId) || '')
+      };
+    }).filter(function(r) { return r.menuId && (r.isAvailable === '0' || r.priceMap || r.printerId); });
+    var mbSheet = textSheet(ss, 'MenuBranch', MENU_BRANCH_HEADERS);
+    var mbKeep = getSheetDataAsObjects(ss, 'MenuBranch').filter(function(r) { return String(r.branchId) !== mbBranch; }).map(function(r) {
+      return [String(r.menuId), String(r.branchId), String(r.isAvailable == null ? '' : r.isAvailable),
+              typeof r.priceMap === 'object' ? JSON.stringify(r.priceMap) : String(r.priceMap || ''), String(r.printerId || '')];
+    });
+    var mbAll = mbKeep.concat(mbRows.map(function(r) { return [r.menuId, mbBranch, r.isAvailable, r.priceMap, r.printerId]; }));
+    mbSheet.clearContents();
+    mbSheet.getRange(1, 1, 1, MENU_BRANCH_HEADERS.length).setValues([MENU_BRANCH_HEADERS]);
+    if (mbAll.length) mbSheet.getRange(2, 1, mbAll.length, MENU_BRANCH_HEADERS.length).setNumberFormat('@').setValues(mbAll);
+    return _bomJson({ success: true, saved: mbRows.length, branchId: mbBranch });
+  }
+
+  // ลำดับการแสดงเมนู — แก้เฉพาะคอลัมน์ sortOrder ค่าอื่นของเมนูไม่ถูกแตะ
+  if (action === 'saveMenuOrder') {
+    var moIds = Array.isArray(postData.ids) ? postData.ids.map(String).filter(Boolean) : [];
+    if (!moIds.length) return _bomJson({ success: false, error: 'ไม่มีรายการเมนู' });
+    var moSheet = ensureHeaders(ss.getSheetByName('Menu'), MENU_HEADERS);
+    var moLast = moSheet.getLastRow();
+    if (moLast < 2) return _bomJson({ success: true, saved: 0 });
+    var moPos = {};
+    moIds.forEach(function(id, i) { moPos[id] = i + 1; });
+    var moCol = MENU_HEADERS.indexOf('sortOrder') + 1;
+    var moIdVals = moSheet.getRange(2, 1, moLast - 1, 1).getValues();
+    var moOld = moSheet.getRange(2, moCol, moLast - 1, 1).getValues();
+    moSheet.getRange(2, moCol, moLast - 1, 1).setValues(moIdVals.map(function(r, i) {
+      var p = moPos[String(r[0])];
+      return [p ? p : moOld[i][0]];
+    }));
+    return _bomJson({ success: true, saved: moIds.length });
+  }
+
+  // บันทึกการเตรียม / การนับสต็อก — ชีต Waste เดียวกับบันทึกการทิ้ง แยกด้วยคอลัมน์ kind
+  if (action === 'savePrepRecord' || action === 'saveStockCount') {
+    var logSheet = ensureHeaders(getOrCreateSheet(ss, 'Waste', WASTE_HEADERS), WASTE_HEADERS);
+    logSheet.appendRow([postData.timestamp || thaiTimeISO(), postData.branch || '', postData.itemName || '', postData.category || '',
+      Number(postData.qty) || 0, postData.unit || '', postData.note || '', postData.staff || '',
+      action === 'savePrepRecord' ? 'prep' : 'count', postData.itemType === 'ingredient' ? 'ingredient' : 'menu']);
+    return _bomJson({ success: true });
+  }
+
+  // ลูกค้าสแกน QR แจ้งโอน → พนักงานยืนยัน (ล็อกไว้กันสองเครื่องกดพร้อมกันแล้วออกบิลซ้อน)
+  if (action === 'kioskPaymentRequest' || action === 'respondKioskPayment' ||
+      action === 'issueTaxInvoice' || action === 'reissueTaxInvoice' || action === 'cancelTaxInvoice') {
+    var xLock = LockService.getScriptLock();
+    try { xLock.waitLock(30000); }
+    catch (xLockErr) { return _bomJson({ success: false, error: 'ระบบกำลังบันทึกรายการอื่นอยู่ กรุณาลองใหม่อีกครั้ง' }); }
+    try {
+      if (action === 'kioskPaymentRequest') return _bomJson(kioskPaymentRequest(ss, postData));
+      if (action === 'respondKioskPayment') return _bomJson(respondKioskPayment(ss, postData));
+      if (action === 'issueTaxInvoice')     return _bomJson(issueTaxInvoice(ss, postData));
+      if (action === 'reissueTaxInvoice')   return _bomJson(reissueTaxInvoice(ss, postData));
+      return _bomJson(cancelTaxInvoice(ss, postData));
+    } catch (xErr) {
+      return _bomJson({ success: false, error: String(xErr) });
+    } finally {
+      try { xLock.releaseLock(); } catch (xRel) {}
+    }
+  }
+
+  if (action === 'saveTaxCustomer') {
+    var tc = postData.customer || {};
+    if (!cleanText(tc.name, 300) || !cleanText(tc.address, 1000)) return _bomJson({ success: false, error: 'กรุณากรอกชื่อและที่อยู่' });
+    try { upsertTaxCustomer(ss, tc, false); } catch (tcErr) { return _bomJson({ success: false, error: String(tcErr.message || tcErr) }); }
+    return _bomJson({ success: true });
+  }
+
+  if (action === 'deleteTaxCustomer') {
+    var dcSheet = ss.getSheetByName('TaxCustomers');
+    var dcTax = cleanText(postData.taxId, 20);
+    var dcBranch = cleanText(postData.branch, 100) || 'สำนักงานใหญ่';
+    var dcFound = findRow(dcSheet, TAX_CUSTOMER_HEADERS, function(o) { return String(o.taxId) === dcTax && String(o.buyerBranch) === dcBranch; });
+    if (dcFound) dcSheet.deleteRow(dcFound.row);
+    return _bomJson({ success: true });
   }
 
   // ── TABLE ORDER ACTIONS ──
@@ -804,16 +1469,17 @@ function doPost(e) {
     var sheet = ss.getSheetByName('Menu');
     var item = postData.item;
     if (!item || !item.id) return _bomJson({ success: false });
-    // Ensure the header includes the popupConfig/prices/categories/printerId columns (migration for old sheets)
-    var menuHeaders = ['id', 'category', 'name', 'nameEn', 'description', 'descriptionEn', 'price', 'image', 'isActive', 'bundledItems', 'popupConfig', 'prices', 'categories', 'printerId'];
-    ensureColumns(sheet, menuHeaders.length);
-    sheet.getRange(1, 1, 1, menuHeaders.length).setValues([menuHeaders]);
+    // หัวตารางชุดใหม่ (เพิ่ม branches = ขายเฉพาะบางสาขา, sortOrder = ลำดับการแสดง) — ชีตเดิมได้คอลัมน์เพิ่มต่อท้าย
+    ensureHeaders(sheet, MENU_HEADERS);
     var data = sheet.getDataRange().getValues();
     var foundIndex = -1;
     for (var i = 1; i < data.length; i++) {
       if (data[i][0] == item.id) { foundIndex = i + 1; break; }
     }
-    var rowData = [item.id, item.category || 'food', item.name || '', item.nameEn || '', item.description || '', item.descriptionEn || '', item.price || 0, item.image || '', item.isActive !== false, item.bundledItems ? JSON.stringify(item.bundledItems) : '[]', item.popupConfig ? JSON.stringify(item.popupConfig) : '{}', item.prices ? JSON.stringify(item.prices) : '[]', item.categories ? JSON.stringify(item.categories) : '[]', item.printerId || ''];
+    var rowData = [item.id, item.category || 'food', item.name || '', item.nameEn || '', item.description || '', item.descriptionEn || '', item.price || 0, item.image || '', item.isActive !== false, item.bundledItems ? JSON.stringify(item.bundledItems) : '[]', item.popupConfig ? JSON.stringify(item.popupConfig) : '{}', item.prices ? JSON.stringify(item.prices) : '[]', item.categories ? JSON.stringify(item.categories) : '[]', item.printerId || '',
+      JSON.stringify(Array.isArray(item.branches) ? item.branches : []),
+      // ลำดับการแสดงแก้ผ่าน saveMenuOrder เท่านั้น — บันทึกเมนูแถวเดิมแล้วลำดับต้องไม่หาย
+      foundIndex !== -1 ? data[foundIndex - 1][MENU_HEADERS.indexOf('sortOrder')] : (item.sortOrder || '')];
     if (foundIndex !== -1) sheet.getRange(foundIndex, 1, 1, rowData.length).setValues([rowData]);
     else sheet.appendRow(rowData);
     return _bomJson({ success: true });
@@ -830,11 +1496,11 @@ function doPost(e) {
 
   if (action === 'saveMenu') {
     var sheet = ss.getSheetByName('Menu');
-    ensureColumns(sheet, 14); // id..categories + printerId
+    ensureColumns(sheet, MENU_HEADERS.length);
     sheet.clearContents();
-    sheet.appendRow(['id', 'category', 'name', 'nameEn', 'description', 'descriptionEn', 'price', 'image', 'isActive', 'bundledItems', 'popupConfig', 'prices', 'categories', 'printerId']);
+    sheet.appendRow(MENU_HEADERS);
     (postData.items || []).forEach(function(item) {
-      sheet.appendRow([item.id || Date.now(), item.category || 'food', item.name || '', item.nameEn || '', item.description || '', item.descriptionEn || '', item.price || 0, item.image || '', item.isActive !== false, item.bundledItems ? JSON.stringify(item.bundledItems) : '[]', item.popupConfig ? JSON.stringify(item.popupConfig) : '{}', item.prices ? JSON.stringify(item.prices) : '[]', item.categories ? JSON.stringify(item.categories) : '[]', item.printerId || '']);
+      sheet.appendRow([item.id || Date.now(), item.category || 'food', item.name || '', item.nameEn || '', item.description || '', item.descriptionEn || '', item.price || 0, item.image || '', item.isActive !== false, item.bundledItems ? JSON.stringify(item.bundledItems) : '[]', item.popupConfig ? JSON.stringify(item.popupConfig) : '{}', item.prices ? JSON.stringify(item.prices) : '[]', item.categories ? JSON.stringify(item.categories) : '[]', item.printerId || '', JSON.stringify(Array.isArray(item.branches) ? item.branches : []), item.sortOrder || '']);
     });
     return _bomJson({ success: true });
   }
@@ -890,8 +1556,12 @@ function doPost(e) {
       c.hasPopup4===true,  c.popup4Category||'', c.popup4Items?JSON.stringify(c.popup4Items):'[]', c.popup4Min||0, c.popup4Max||0, c.popup4ItemsMax?JSON.stringify(c.popup4ItemsMax):'{}', c.popup4Free===true,
       c.hasPopup5===true,  c.popup5Category||'', c.popup5Items?JSON.stringify(c.popup5Items):'[]', c.popup5Min||0, c.popup5Max||0, c.popup5ItemsMax?JSON.stringify(c.popup5ItemsMax):'{}', c.popup5Free===true,
       c.hasPopup6===true,  c.popup6Category||'', c.popup6Items?JSON.stringify(c.popup6Items):'[]', c.popup6Min||0, c.popup6Max||0, c.popup6ItemsMax?JSON.stringify(c.popup6ItemsMax):'{}', c.popup6Free===true,
-      c.hasDining!==false
+      c.hasDining!==false,
+      // ใครเห็นหมวดนี้: '' = ทั้งพนักงานและลูกค้า · 'staff' = เฉพาะหน้าพนักงาน · 'customer' = เฉพาะหน้าลูกค้าสั่งเอง
+      c.visibility || ''
     ];
+    ensureColumns(sheet, rowData.length);
+    sheet.getRange(1, rowData.length).setValue('visibility');
     if (foundIndex !== -1) sheet.getRange(foundIndex, 1, 1, rowData.length).setValues([rowData]);
     else sheet.appendRow(rowData);
     return _bomJson({ success: true });
@@ -909,7 +1579,7 @@ function doPost(e) {
   if (action === 'saveCategories') {
     var sheet = ss.getSheetByName('Categories');
     sheet.clearContents();
-    sheet.appendRow(['slug','name','nameEn','icon','isActive','hasPopup1','popup1Category','popup1Items','popup1Min','popup1Max','popup1ItemsMax','popup1Free','hasPopup2','popup2Category','popup2Items','popup2Min','popup2Max','popup2ItemsMax','popup2Free','hasPopup3','popup3Category','popup3Items','popup3Min','popup3Max','popup3ItemsMax','popup3Free','hasPopup4','popup4Category','popup4Items','popup4Min','popup4Max','popup4ItemsMax','popup4Free','hasPopup5','popup5Category','popup5Items','popup5Min','popup5Max','popup5ItemsMax','popup5Free','hasPopup6','popup6Category','popup6Items','popup6Min','popup6Max','popup6ItemsMax','popup6Free','hasDining']);
+    sheet.appendRow(['slug','name','nameEn','icon','isActive','hasPopup1','popup1Category','popup1Items','popup1Min','popup1Max','popup1ItemsMax','popup1Free','hasPopup2','popup2Category','popup2Items','popup2Min','popup2Max','popup2ItemsMax','popup2Free','hasPopup3','popup3Category','popup3Items','popup3Min','popup3Max','popup3ItemsMax','popup3Free','hasPopup4','popup4Category','popup4Items','popup4Min','popup4Max','popup4ItemsMax','popup4Free','hasPopup5','popup5Category','popup5Items','popup5Min','popup5Max','popup5ItemsMax','popup5Free','hasPopup6','popup6Category','popup6Items','popup6Min','popup6Max','popup6ItemsMax','popup6Free','hasDining','visibility']);
     (postData.categories || []).forEach(function(c) {
       sheet.appendRow([
         c.slug||Date.now().toString(), c.name||'', c.nameEn||'', c.icon||'📌', c.isActive!==false,
@@ -919,7 +1589,8 @@ function doPost(e) {
         c.hasPopup4===true,  c.popup4Category||'', c.popup4Items?JSON.stringify(c.popup4Items):'[]', c.popup4Min||0, c.popup4Max||0, c.popup4ItemsMax?JSON.stringify(c.popup4ItemsMax):'{}', c.popup4Free===true,
         c.hasPopup5===true,  c.popup5Category||'', c.popup5Items?JSON.stringify(c.popup5Items):'[]', c.popup5Min||0, c.popup5Max||0, c.popup5ItemsMax?JSON.stringify(c.popup5ItemsMax):'{}', c.popup5Free===true,
         c.hasPopup6===true,  c.popup6Category||'', c.popup6Items?JSON.stringify(c.popup6Items):'[]', c.popup6Min||0, c.popup6Max||0, c.popup6ItemsMax?JSON.stringify(c.popup6ItemsMax):'{}', c.popup6Free===true,
-        c.hasDining!==false
+        c.hasDining!==false,
+        c.visibility || ''
       ]);
     });
     return _bomJson({ success: true });
@@ -936,10 +1607,8 @@ function doPost(e) {
 
   // บันทึกรายการทิ้งของเสีย (Waste)
   if (action === 'saveWasteRecord') {
-    var wasteHeaders = ['timestamp', 'branch', 'itemName', 'category', 'qty', 'unit', 'note', 'staff'];
-    var wsh = getOrCreateSheet(ss, 'Waste', wasteHeaders);
-    wsh.getRange(1, 1, 1, wasteHeaders.length).setValues([wasteHeaders]);
-    wsh.appendRow([postData.timestamp || new Date().toISOString(), postData.branch || '', postData.itemName || '', postData.category || '', Number(postData.qty) || 0, postData.unit || '', postData.note || '', postData.staff || '']);
+    var wsh = ensureHeaders(getOrCreateSheet(ss, 'Waste', WASTE_HEADERS), WASTE_HEADERS);
+    wsh.appendRow([postData.timestamp || thaiTimeISO(), postData.branch || '', postData.itemName || '', postData.category || '', Number(postData.qty) || 0, postData.unit || '', postData.note || '', postData.staff || '', 'waste', postData.itemType === 'ingredient' ? 'ingredient' : 'menu']);
     return _bomJson({ success: true });
   }
 
@@ -969,12 +1638,23 @@ function doPost(e) {
   if (action === 'savePrinters') {
     // printMode = รวมใบเดียว/แยกใบ ต้องเก็บลงชีตด้วย ไม่งั้นตอน getLive ส่งกลับมาไม่มีค่านี้
     // แล้วเครื่องที่ sync จะทับค่าที่ตั้งไว้จนกลับไปเป็น "รวมใบเดียว" เอง
-    var sheet = getOrCreateSheet(ss, 'Printers', ['id', 'name', 'ip', 'type', 'printMode']);
-    sheet.clearContents();
-    sheet.appendRow(['id', 'name', 'ip', 'type', 'printMode']);
-    (postData.printers || []).forEach(function(p) {
-      sheet.appendRow([p.id || '', p.name || '', p.ip || '', p.type || '', p.printMode || 'combined']);
+    // เขียนทับเฉพาะปริ้นเตอร์ของสาขาที่ส่งมา — สาขาอื่นไม่ถูกลบ
+    // categories = หมวดอาหารที่เครื่องนี้พิมพ์ ([] = ทุกหมวด)
+    var prBranch = String(postData.branchId || postData.branch || '').trim() || defaultBranchId(ss);
+    var prMain = defaultBranchId(ss);
+    var sheet = getOrCreateSheet(ss, 'Printers', PRINTER_HEADERS);
+    var prKeep = getSheetDataAsObjects(ss, 'Printers').filter(function(p) {
+      var b = String(p.branchId || '').trim();
+      return b ? b !== prBranch : (prBranch && prBranch !== prMain); // แถวเก่าไม่มีสาขา = ของสาขาหลัก
     });
+    var prRows = prKeep.map(function(p) {
+      return [p.id || '', p.name || '', p.ip || '', p.type || '', p.printMode || 'combined', String(p.branchId || ''), JSON.stringify(Array.isArray(p.categories) ? p.categories : [])];
+    }).concat((postData.printers || []).map(function(p) {
+      return [p.id || '', p.name || '', p.ip || '', p.type || '', p.printMode || 'combined', prBranch, JSON.stringify(Array.isArray(p.categories) ? p.categories.map(String) : [])];
+    }));
+    sheet.clearContents();
+    ensureHeaders(sheet, PRINTER_HEADERS);
+    if (prRows.length) sheet.getRange(2, 1, prRows.length, PRINTER_HEADERS.length).setValues(prRows);
     return _bomJson({ success: true, saved: (postData.printers || []).length });
   }
 
