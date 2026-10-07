@@ -44,7 +44,7 @@ const PLAN = [
       ['description', S, 'description'], ['descriptionEn', S, 'descriptionEn'], ['price', N, 'price'],
       ['image', S, 'image'], ['isActive', B, 'isActive'], ['bundledItems', S, 'bundledItems'],
       ['popupConfig', S, 'popupConfig'], ['prices', S, 'prices'], ['categories', S, 'categories'],
-      ['printerId', S, 'printerId']
+      ['printerId', S, 'printerId'], ['branches', S, 'branches'], ['sortOrder', N, 'sortOrder']
     ] },
 
   { sheet: 'Categories', table: 'Categories', columns: categoryPlan() },
@@ -65,7 +65,8 @@ const PLAN = [
   { sheet: 'Settings', table: 'Settings', columns: [['key', S, 'key'], ['value', S, 'value']] },
 
   { sheet: 'Printers', table: 'Printers', columns: [
-      ['id', S, 'id'], ['name', S, 'name'], ['ip', S, 'ip'], ['type', S, 'type'], ['printMode', S, 'printMode']
+      ['id', S, 'id'], ['name', S, 'name'], ['ip', S, 'ip'], ['type', S, 'type'], ['printMode', S, 'printMode'],
+      ['BranchId', S, 'branchId'], ['categories', S, 'categories']
     ] },
 
   { sheet: 'LiquorStorage', table: 'LiquorStorage', columns: [
@@ -76,7 +77,8 @@ const PLAN = [
 
   { sheet: 'Waste', table: 'Waste', columns: [
       ['timestamp', S, 'timestamp'], ['branch', S, 'branch'], ['itemName', S, 'itemName'], ['category', S, 'category'],
-      ['qty', N, 'qty'], ['unit', S, 'unit'], ['note', S, 'note'], ['staff', S, 'staff']
+      ['qty', N, 'qty'], ['unit', S, 'unit'], ['note', S, 'note'], ['staff', S, 'staff'],
+      ['kind', S, 'kind'], ['itemType', S, 'itemType']
     ], derive: { TsLocal: (row, get) => toThaiClock(get('timestamp')) } },
 
   { sheet: 'PaymentApprovals', table: 'PaymentApprovals', columns: [
@@ -120,6 +122,36 @@ const PLAN = [
       ['purchaseQty', N, 9], ['purchaseUnit', S, 10], ['pricePerPurchase', N, 11]
     ], skipIfEmpty: 1 },
 
+  // ── ชีตที่ Apps Script รุ่นหน้าจอชุด HumLai-POS สร้างเพิ่ม (optional = ชีตเก่ายังไม่มี ข้ามได้) ──
+  { sheet: 'Branches', table: 'Branches', optional: true, columns: [
+      ['id', S, 'id'], ['name', S, 'name'], ['billPrefix', S, 'billPrefix'], ['phone', S, 'phone'], ['address', S, 'address'],
+      ['taxId', S, 'taxId'], ['receiptFooter', S, 'receiptFooter'], ['isActive', B, 'isActive'], ['posId', S, 'posId']
+    ] },
+
+  { sheet: 'MenuBranch', table: 'MenuBranch', optional: true, columns: [
+      ['menuId', S, 'menuId'], ['branchId', S, 'branchId'], ['isAvailable', B, 'isAvailable'],
+      ['priceMap', S, 'priceMap'], ['printerId', S, 'printerId']
+    ] },
+
+  { sheet: 'TaxInvoices', table: 'TaxInvoices', optional: true, columns: [
+      ['invoiceNo', S, 'invoiceNo'], ['orderNumber', S, 'orderNumber'], ['branchId', S, 'branchId'], ['issuedAt', S, 'issuedAt'],
+      ['buyerName', S, 'buyerName'], ['buyerTaxId', S, 'buyerTaxId'], ['buyerAddress', S, 'buyerAddress'], ['buyerBranch', S, 'buyerBranch'],
+      ['itemsJson', S, 'itemsJson'], ['subtotal', N, 'subtotal'], ['vatRate', N, 'vatRate'], ['vatAmount', N, 'vatAmount'],
+      ['total', N, 'total'], ['sellerJson', S, 'sellerJson'], ['issuedBy', S, 'issuedBy'], ['cancelled', B, 'cancelled'],
+      ['cancelledAt', S, 'cancelledAt'], ['cancelReason', S, 'cancelReason']
+    ] },
+
+  { sheet: 'TaxCustomers', table: 'TaxCustomers', optional: true, columns: [
+      ['taxId', S, 'taxId'], ['buyerBranch', S, 'buyerBranch'], ['name', S, 'name'], ['address', S, 'address'],
+      ['phone', S, 'phone'], ['useCount', N, 'useCount'], ['lastUsedAt', S, 'lastUsedAt']
+    ] },
+
+  { sheet: 'KioskPayments', table: 'KioskPayments', optional: true, columns: [
+      ['id', S, 'id'], ['branchId', S, 'branchId'], ['tableNo', S, 'tableNo'], ['dining', S, 'dining'],
+      ['payloadJson', S, 'payloadJson'], ['total', N, 'total'], ['status', S, 'status'], ['requestedAt', S, 'requestedAt'],
+      ['respondedAt', S, 'respondedAt'], ['respondedBy', S, 'respondedBy'], ['orderNumber', S, 'orderNumber']
+    ] },
+
   { sheet: 'ตัดสต็อก', table: 'StockOut', columns: [
       ['ts', D, 0], ['orderNumber', S, 1], ['tableNo', S, 2], ['menuId', S, 3], ['menuName', S, 4],
       ['menuQty', N, 5], ['ingId', S, 6], ['ingName', S, 7], ['deductQty', N, 8], ['unit', S, 9], ['cost', N, 10]
@@ -138,6 +170,7 @@ function categoryPlan() {
     plan.push([`popup${i}Free`, B, `popup${i}Free`]);
   }
   plan.push(['hasDining', B, 'hasDining']);
+  plan.push(['visibility', S, 'visibility']);
   return plan;
 }
 
@@ -169,7 +202,17 @@ async function fetchSheet(name, offset, limit) {
 }
 
 async function migrateOne(plan) {
-  const head = await fetchSheet(plan.sheet, 0, 1);
+  let head;
+  try {
+    head = await fetchSheet(plan.sheet, 0, 1);
+  } catch (err) {
+    // ชีตที่เพิ่มมากับ Apps Script รุ่นใหม่ — ร้านที่ยังไม่เคยใช้ฟีเจอร์นั้นจะยังไม่มีชีต ไม่ถือว่าผิดพลาด
+    if (plan.optional && /ไม่พบชีท/.test(err.message)) {
+      console.log(`\n📄 ${plan.sheet} → ยังไม่มีชีตนี้ ข้าม`);
+      return { sheet: plan.sheet, total: 0, written: 0 };
+    }
+    throw err;
+  }
   const headers = (head.headers || []).map(h => String(h).trim());
   const total = Number(head.total) || 0;
   console.log(`\n📄 ${plan.sheet} → dbo.${plan.table}  (${total} แถวในชีท)`);

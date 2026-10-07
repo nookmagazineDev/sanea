@@ -26,7 +26,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const MAP_FILE = path.join(here, '..', 'db', 'id-map.json');
 
 const CATEGORY_COLS = Object.keys(CATEGORY_SPEC);
-const MENU_COLS = ['id','category','name','nameEn','description','descriptionEn','price','image','isActive','bundledItems','popupConfig','prices','categories','printerId'];
+// branches (ขายเฉพาะบางสาขา) / sortOrder (ลำดับการแสดง) ต้องอยู่ในรายการด้วย ไม่งั้นเขียนตารางใหม่แล้วค่าหาย
+const MENU_COLS = ['id','category','name','nameEn','description','descriptionEn','price','image','isActive','bundledItems','popupConfig','prices','categories','printerId','branches','sortOrder'];
 const POPUP_NUMS = [1, 2, 3, 4, 5, 6];
 
 // ── ตัวช่วยอ่าน/เขียนช่องที่เก็บ JSON เป็นข้อความ ──
@@ -155,7 +156,7 @@ const run = async () => {
     await insertRows('Menu', MENU_COLS, menuRows, runner);
 
     // ตารางที่อ้างถึงรหัสเมนู — อัปเดตเฉพาะแถวที่รหัสเปลี่ยนจริง
-    for (const [table, column] of [['Bom', 'menuId'], ['StockOut', 'menuId']]) {
+    for (const [table, column] of [['Bom', 'menuId'], ['StockOut', 'menuId'], ['MenuBranch', 'menuId']]) {
       let touched = 0;
       for (const [oldId, newId] of menuMap) {
         if (oldId === newId) continue;
@@ -175,6 +176,17 @@ const run = async () => {
       discountTouched++;
     }
     console.log(`  Discounts.categories: แก้ ${discountTouched} แถว`);
+
+    // ปริ้นเตอร์ครัว/บาร์ผูกกับหมวดอาหารที่พิมพ์เป็นรายการ JSON เหมือนส่วนลด
+    const printers = await runner('SELECT id, categories FROM dbo.Printers');
+    let printerTouched = 0;
+    for (const row of printers.recordset) {
+      const mapped = remapList(row.categories, catMap);
+      if (mapped === row.categories) continue;
+      await runner('UPDATE dbo.Printers SET categories = @categories WHERE id = @id', { categories: mapped, id: row.id });
+      printerTouched++;
+    }
+    console.log(`  Printers.categories: แก้ ${printerTouched} แถว`);
   });
 
   const mapping = {

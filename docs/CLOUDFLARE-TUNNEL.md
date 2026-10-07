@@ -224,7 +224,7 @@ https://pos-api.โดเมนคุณ/api/pos?action=ping
 IMAGE_BASE_URL=https://pos-api.โดเมนคุณ
 
 # จำกัดว่าเบราว์เซอร์จากโดเมนไหนเรียก API ได้บ้าง (คั่นหลายอันด้วยจุลภาค)
-API_ALLOW_ORIGIN=https://hum-lai-pos.vercel.app
+API_ALLOW_ORIGIN=https://<โดเมนหน้าเว็บเสน่ห์>.vercel.app
 ```
 
 แล้วรีสตาร์ต API Server: `uninstall-api-autostart.bat` → `install-api-autostart.bat`
