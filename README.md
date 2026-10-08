@@ -16,6 +16,8 @@ Deploy > Manage deployments > แก้ deployment เดิม > Version: **New
 
 ### ย้ายไป SQL Server ภายหลัง (ยังไม่ต้องทำ)
 
+**คู่มือทีละขั้น (เครื่อง SQL เดียวกับ HumLai แยกฐานข้อมูล): [`docs/SANEA-ON-SAME-SERVER.md`](docs/SANEA-ON-SAME-SERVER.md)**
+
 โค้ด API ฝั่ง SQL Server อยู่ในโฟลเดอร์ `api/` ครบแล้ว (`db/schema.sql` = โครงสร้างตาราง) — พร้อมเมื่อไรแค่ build ด้วย `VITE_API_URL=/api/pos`
 - ตั้งค่าการเชื่อมต่อ: คัดลอก `.env.example` เป็น `.env` แล้วแก้ค่า `SQL_*` → `npm run sql:init` → `npm run sql:migrate -- --write`
 - ขั้นตอนทั้งหมด: [`docs/SQL-MIGRATION.md`](docs/SQL-MIGRATION.md) · เกาะโดเมนเดิม: [`docs/API-BEHIND-EXISTING-DOMAIN.md`](docs/API-BEHIND-EXISTING-DOMAIN.md) · Cloudflare Tunnel: [`docs/CLOUDFLARE-TUNNEL.md`](docs/CLOUDFLARE-TUNNEL.md)

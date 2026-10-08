@@ -155,7 +155,7 @@ https://โดเมนเดิมของคุณ/sanea/api/pos?action=ping
 IMAGE_BASE_URL=https://โดเมนเดิมของคุณ/sanea
 
 # จำกัดว่าเบราว์เซอร์จากโดเมนไหนเรียก API ได้ (คั่นหลายอันด้วยจุลภาค)
-API_ALLOW_ORIGIN=https://hum-lai-pos.vercel.app
+API_ALLOW_ORIGIN=https://<โดเมนหน้าเว็บเสน่ห์>.vercel.app
 ```
 
 รีสตาร์ตด้วยการรัน `uninstall-api-autostart.bat` แล้วตามด้วย `install-api-autostart.bat`

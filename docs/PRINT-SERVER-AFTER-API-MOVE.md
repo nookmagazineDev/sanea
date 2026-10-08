@@ -3,7 +3,7 @@
 อัปเดต 2026-09-23
 
 เครื่อง Print Server ในร้านไม่ต้องติดตั้งอะไรเพิ่ม มีงานเดียวคือกดปุ่มในหน้าหลังบ้าน
-ให้ระบบพิมพ์ใบครัวอัตโนมัติเปลี่ยนไปใช้ API ตัวใหม่ที่ `pos-api.khanoykorshabu.com`
+ให้ระบบพิมพ์ใบครัวอัตโนมัติเปลี่ยนไปใช้ API ตัวใหม่ที่ `sanea-api.khanoykorshabu.com`
 
 ## ภาพรวมระบบ
 
@@ -11,7 +11,7 @@
 
 ```mermaid
 flowchart LR
-  POS["หน้าเว็บ POS<br/>hum-lai-pos.vercel.app"] -->|บันทึกบิล/โต๊ะ| CF["pos-api.khanoykorshabu.com<br/>Cloudflare Tunnel"]
+  POS["หน้าเว็บ POS เสน่ห์<br/>(Vercel)"] -->|บันทึกบิล/โต๊ะ| CF["sanea-api.khanoykorshabu.com<br/>Cloudflare Tunnel"]
   CF --> API["API Server<br/>เครื่อง SQL · D:\sanea-pos"]
   API --> SQL[(SQL Server)]
   POS -->|สั่งพิมพ์ 127.0.0.1:3001| PS["Print Server<br/>เครื่องในร้าน"]
@@ -49,7 +49,7 @@ Print Server ทำงาน 2 อย่าง:
 ใช้เวลาไม่เกิน 1 นาที ถ้าข้อไหนไม่ผ่าน ดูหัวข้อถัดไป
 
 1. เปิดเครื่อง Print Server และเครื่องพิมพ์ทุกเครื่อง
-2. เปิด `https://pos-api.khanoykorshabu.com/api/pos?action=ping` ต้องเห็น `"db":"connected"`
+2. เปิด `https://sanea-api.khanoykorshabu.com/api/pos?action=ping` ต้องเห็น `"db":"connected"`
 3. หน้า POS เมนูและหมวดหมู่ขึ้นครบ ไม่มีแถบแดงด้านบน
 4. หน้าตั้งค่าเครื่องพิมพ์ไม่มีกล่องสีเหลือง และการพิมพ์อัตโนมัติเปิดอยู่
 
