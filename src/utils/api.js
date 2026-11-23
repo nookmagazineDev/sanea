@@ -2,14 +2,13 @@
 //
 // ทุกหน้าเรียกผ่านปลายทางเดียวกันที่นี่ที่เดียว
 //
-// ค่าเริ่มต้น = Google Apps Script ของเสน่ห์ (ข้อมูลอยู่ใน Google Sheet — โค้ดฝั่งนั้นคือ gas_complete_script.js)
-// พร้อมย้ายไป SQL Server เมื่อไร ตั้ง VITE_API_URL ตอน build (ไม่ต้องแก้โค้ด):
-//   VITE_API_URL=/api/pos npm run build                                  ← API บน Vercel โดเมนเดียวกับหน้าเว็บ
-//   VITE_API_URL=https://pos-api.example.com/api/pos npm run build       ← API อยู่คนละที่
-const GOOGLE_SHEET_API = 'https://script.google.com/macros/s/AKfycbzxzhnOhSPWssbEfRVG8doa4G4fQ_98B9_Kog34gguPrG7fgbY5gPnuvTIoneJcmdKgrA/exec';
+// ค่าเริ่มต้น = ฟังก์ชัน "pos" บน Supabase ของเสน่ห์ (ข้อมูลอยู่ใน Supabase Postgres — โค้ดฝั่งนั้นคือ supabase/functions/pos)
+// ชี้ไปที่อื่นได้ด้วย VITE_API_URL ตอน build (ไม่ต้องแก้โค้ด) เช่น
+//   VITE_API_URL=https://script.google.com/macros/s/.../exec npm run build   ← กลับไปใช้ Google Sheet ชั่วคราว
+const SUPABASE_API = 'https://gdcdbzwhucqkxrjlpege.supabase.co/functions/v1/pos';
 const configured = String(import.meta.env.VITE_API_URL || '').trim();
 
-export const API_URL = configured || GOOGLE_SHEET_API;
+export const API_URL = configured || SUPABASE_API;
 
 // URL แบบเต็มสำหรับส่งให้โปรแกรมอื่นเรียก (Print Server อยู่คนละเครื่อง ใช้ path สั้น ๆ ไม่ได้)
 export const apiUrlAbsolute = () => {

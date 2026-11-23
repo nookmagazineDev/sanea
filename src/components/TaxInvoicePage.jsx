@@ -22,18 +22,18 @@ const timeOf = (ts) => {
 };
 const isHQ = (b) => !b || b === 'สำนักงานใหญ่' || /^0+$/.test(String(b));
 
-const overlay = { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 900, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2vh 1rem', overflowY: 'auto' };
-const panel = { background: '#fff', borderRadius: 16, width: '100%', maxWidth: 960, padding: '1.1rem 1.25rem', color: '#0f172a', fontFamily: 'inherit', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' };
-const chip = (on) => ({ padding: '0.4rem 0.85rem', borderRadius: 999, border: `1px solid ${on ? '#eab308' : '#cbd5e1'}`, background: on ? '#fef9c3' : '#fff', fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', color: '#0f172a' });
-const tabBtn = (on) => ({ padding: '0.55rem 0.9rem', border: 'none', borderBottom: `3px solid ${on ? '#16a34a' : 'transparent'}`, background: 'none', fontWeight: on ? 700 : 500, color: on ? '#0f172a' : '#64748b', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.92rem' });
-const th = { textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', padding: '0.5rem', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' };
-const td = { padding: '0.55rem 0.5rem', borderBottom: '1px solid #f1f5f9', fontSize: '0.88rem', verticalAlign: 'middle' };
-const input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', borderRadius: 8, border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.85rem' };
+const overlay = { position: 'fixed', inset: 0, background: 'rgba(20, 20, 20, 0.55)', zIndex: 900, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '2vh 1rem', overflowY: 'auto' };
+const panel = { background: '#fff', borderRadius: 16, width: '100%', maxWidth: 960, padding: '1.1rem 1.25rem', color: '#141414', fontFamily: 'inherit', boxShadow: '0 20px 50px rgba(0,0,0,0.25)' };
+const chip = (on) => ({ padding: '0.4rem 0.85rem', borderRadius: 999, border: `1px solid ${on ? '#a50d25' : '#d0d0d0'}`, background: on ? '#fdecee' : '#fff', fontWeight: on ? 700 : 500, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', color: '#141414' });
+const tabBtn = (on) => ({ padding: '0.55rem 0.9rem', border: 'none', borderBottom: `3px solid ${on ? '#16a34a' : 'transparent'}`, background: 'none', fontWeight: on ? 700 : 500, color: on ? '#141414' : '#5a5a5a', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.92rem' });
+const th = { textAlign: 'left', color: '#5a5a5a', fontWeight: 600, fontSize: '0.75rem', padding: '0.5rem', borderBottom: '1px solid #e4e4e4', whiteSpace: 'nowrap' };
+const td = { padding: '0.55rem 0.5rem', borderBottom: '1px solid #f1f1f1', fontSize: '0.88rem', verticalAlign: 'middle' };
+const input = { width: '100%', boxSizing: 'border-box', padding: '0.45rem 0.6rem', borderRadius: 8, border: '1px solid #d0d0d0', fontFamily: 'inherit', fontSize: '0.85rem' };
 
 const PayBadge = ({ method }) => {
   const m = String(method || '').toLowerCase();
-  if (!m || m === '—') return <span style={{ color: '#94a3b8' }}>—</span>;
-  const [c, bg] = m.includes('สด') ? ['#16a34a', '#dcfce7'] : (m.includes('โอน') || m.includes('qr')) ? ['#0284c7', '#e0f2fe'] : m.includes('บัตร') ? ['#ea580c', '#ffedd5'] : ['#475569', '#f1f5f9'];
+  if (!m || m === '—') return <span style={{ color: '#7a7a7a' }}>—</span>;
+  const [c, bg] = m.includes('สด') ? ['#16a34a', '#dcfce7'] : (m.includes('โอน') || m.includes('qr')) ? ['#141414', '#efefef'] : m.includes('บัตร') ? ['#c8102e', '#fbe0e4'] : ['#454545', '#f1f1f1'];
   return <span style={{ padding: '0.15rem 0.55rem', borderRadius: 999, fontSize: '0.75rem', fontWeight: 700, color: c, background: bg, whiteSpace: 'nowrap' }}>{method}</span>;
 };
 
@@ -150,7 +150,7 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
     return (
       <button onClick={() => setModalOrder(bill)}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.35rem 0.7rem', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap',
-          border: `1px solid ${active ? '#86efac' : '#cbd5e1'}`, background: active ? '#dcfce7' : '#fff', color: active ? '#15803d' : '#0f172a' }}>
+          border: `1px solid ${active ? '#86efac' : '#d0d0d0'}`, background: active ? '#dcfce7' : '#fff', color: active ? '#15803d' : '#141414' }}>
         {active ? <>✓ {inv.invoiceNo}</> : <><FileText size={14} /> ออกใบกำกับภาษี</>}
       </button>
     );
@@ -162,10 +162,10 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>🧾 ใบกำกับภาษี</h2>
           <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-            <button onClick={load} disabled={loading} title="โหลดใหม่" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+            <button onClick={load} disabled={loading} title="โหลดใหม่" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a5a5a' }}>
               <RefreshCw size={18} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><X size={24} /></button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5a5a5a' }}><X size={24} /></button>
           </div>
         </div>
 
@@ -177,13 +177,13 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
             onChange={e => e.target.value && setRange({ key: 'pick', from: e.target.value, to: e.target.value })}
             style={{ ...chip(range.key === 'pick'), padding: '0.32rem 0.6rem' }} />
           <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
-            <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
+            <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: '#7a7a7a' }} />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ค้นหาเลขบิล / โต๊ะ / ชื่อลูกค้า / เลขผู้เสียภาษี"
               style={{ ...input, paddingLeft: 32, padding: '0.5rem 0.7rem 0.5rem 32px' }} />
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid #e2e8f0', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.25rem', borderBottom: '1px solid #e4e4e4', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
           <button style={tabBtn(tab === 'bills')} onClick={() => setTab('bills')}>บิลที่ขายแล้ว ({shownBills.length})</button>
           <button style={tabBtn(tab === 'invoices')} onClick={() => setTab('invoices')}>ใบกำกับที่ออกแล้ว ({shownInvoices.length})</button>
           <button style={tabBtn(tab === 'customers')} onClick={() => setTab('customers')}>ลูกค้า ({shownCustomers.length})</button>
@@ -191,7 +191,7 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
 
         {error && <div style={{ color: '#dc2626', fontWeight: 600, margin: '0.5rem 0' }}>{error}</div>}
         {msg && <div style={{ color: msg.startsWith('❌') ? '#dc2626' : '#15803d', fontWeight: 600, margin: '0.5rem 0' }}>{msg}</div>}
-        {loading && <div style={{ color: '#64748b', padding: '1rem 0' }}>กำลังโหลด...</div>}
+        {loading && <div style={{ color: '#5a5a5a', padding: '1rem 0' }}>กำลังโหลด...</div>}
 
         {!loading && tab === 'bills' && (
           shownBills.length === 0 ? <Empty text="ไม่มีบิลในช่วงวันที่เลือก" /> : (
@@ -201,7 +201,7 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
                 <tbody>
                   {shownBills.map(b => (
                     <tr key={b.orderNumber}>
-                      <td style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>{timeOf(b.timestamp)}</td>
+                      <td style={{ ...td, color: '#5a5a5a', whiteSpace: 'nowrap' }}>{timeOf(b.timestamp)}</td>
                       <td style={{ ...td, fontWeight: 700 }}>{b.orderNumber}</td>
                       <td style={td}>{b.customerName || '—'}</td>
                       <td style={{ ...td, fontWeight: 700 }}>฿{fmt(b.total)}</td>
@@ -223,7 +223,7 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
                 <tbody>
                   {shownInvoices.map(inv => (
                     <tr key={inv.invoiceNo} style={{ opacity: inv.cancelled ? 0.55 : 1 }}>
-                      <td style={{ ...td, color: '#64748b', whiteSpace: 'nowrap' }}>{timeOf(inv.issuedAt)}</td>
+                      <td style={{ ...td, color: '#5a5a5a', whiteSpace: 'nowrap' }}>{timeOf(inv.issuedAt)}</td>
                       <td style={{ ...td, fontWeight: 700, whiteSpace: 'nowrap' }}>
                         {inv.invoiceNo}
                         {inv.cancelled && <div style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 700 }}>ยกเลิกแล้ว</div>}
@@ -231,12 +231,12 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
                       <td style={td}>{inv.orderNumber}</td>
                       <td style={td}>
                         <div style={{ fontWeight: 600 }}>{inv.buyer.name}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{inv.buyer.taxId}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#5a5a5a' }}>{inv.buyer.taxId}</div>
                       </td>
                       <td style={{ ...td, fontWeight: 700 }}>฿{fmt(inv.total)}</td>
                       <td style={td}>
                         <button onClick={() => setModalOrder({ orderNumber: inv.orderNumber, total: inv.total, customerName: '' })}
-                          style={{ padding: '0.35rem 0.7rem', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700 }}>
+                          style={{ padding: '0.35rem 0.7rem', borderRadius: 8, border: '1px solid #d0d0d0', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700 }}>
                           {inv.cancelled ? 'ดู / ออกใหม่' : 'พิมพ์ / จัดการ'}
                         </button>
                       </td>
@@ -258,30 +258,30 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
                     const isEditing = editing && editing.taxId === c.taxId && editing.branch === c.branch;
                     if (isEditing) {
                       return (
-                        <tr key={`${c.taxId}-${c.branch}`} style={{ background: '#f8fafc' }}>
+                        <tr key={`${c.taxId}-${c.branch}`} style={{ background: '#f8f8f8' }}>
                           <td style={td}>
                             <input style={input} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
                             <input style={{ ...input, marginTop: 4 }} value={editing.phone} placeholder="เบอร์โทร" onChange={e => setEditing({ ...editing, phone: e.target.value })} />
                           </td>
-                          <td style={td}>{c.taxId}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{isHQ(c.branch) ? 'สำนักงานใหญ่' : `สาขา ${c.branch}`}</div></td>
+                          <td style={td}>{c.taxId}<div style={{ fontSize: '0.75rem', color: '#5a5a5a' }}>{isHQ(c.branch) ? 'สำนักงานใหญ่' : `สาขา ${c.branch}`}</div></td>
                           <td style={td}><textarea style={{ ...input, minHeight: 56 }} value={editing.address} onChange={e => setEditing({ ...editing, address: e.target.value })} /></td>
                           <td style={td}>{c.useCount}</td>
                           <td style={{ ...td, whiteSpace: 'nowrap' }}>
                             <button onClick={saveCustomer} style={{ padding: '0.35rem 0.6rem', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 700, marginRight: 4 }}><Save size={14} /></button>
-                            <button onClick={() => setEditing(null)} style={{ padding: '0.35rem 0.6rem', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}><X size={14} /></button>
+                            <button onClick={() => setEditing(null)} style={{ padding: '0.35rem 0.6rem', borderRadius: 8, border: '1px solid #d0d0d0', background: '#fff', cursor: 'pointer' }}><X size={14} /></button>
                           </td>
                         </tr>
                       );
                     }
                     return (
                       <tr key={`${c.taxId}-${c.branch}`}>
-                        <td style={td}><div style={{ fontWeight: 700 }}>{c.name}</div>{c.phone && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>☎ {c.phone}</div>}</td>
-                        <td style={td}>{c.taxId}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{isHQ(c.branch) ? 'สำนักงานใหญ่' : `สาขา ${c.branch}`}</div></td>
-                        <td style={{ ...td, fontSize: '0.8rem', color: '#475569', maxWidth: 320 }}>{c.address}</td>
+                        <td style={td}><div style={{ fontWeight: 700 }}>{c.name}</div>{c.phone && <div style={{ fontSize: '0.75rem', color: '#5a5a5a' }}>☎ {c.phone}</div>}</td>
+                        <td style={td}>{c.taxId}<div style={{ fontSize: '0.75rem', color: '#5a5a5a' }}>{isHQ(c.branch) ? 'สำนักงานใหญ่' : `สาขา ${c.branch}`}</div></td>
+                        <td style={{ ...td, fontSize: '0.8rem', color: '#454545', maxWidth: 320 }}>{c.address}</td>
                         <td style={td}>{c.useCount} ครั้ง</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
                           <button onClick={() => { setMsg(''); setEditing({ taxId: c.taxId, branch: c.branch, name: c.name, address: c.address, phone: c.phone || '' }); }}
-                            style={{ padding: '0.35rem 0.7rem', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, marginRight: 4 }}>แก้ไข</button>
+                            style={{ padding: '0.35rem 0.7rem', borderRadius: 8, border: '1px solid #d0d0d0', background: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 700, marginRight: 4 }}>แก้ไข</button>
                           {isAdmin && (
                             <button onClick={() => deleteCustomer(c)} title="ลบ" style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid #fecaca', background: '#fff', color: '#dc2626', cursor: 'pointer' }}><Trash2 size={14} /></button>
                           )}
@@ -313,5 +313,5 @@ export default function TaxInvoicePage({ onClose, isAdmin = false, userName = ''
 }
 
 function Empty({ text }) {
-  return <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2.5rem 1rem' }}>{text}</div>;
+  return <div style={{ textAlign: 'center', color: '#7a7a7a', padding: '2.5rem 1rem' }}>{text}</div>;
 }

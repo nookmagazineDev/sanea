@@ -2,15 +2,15 @@
 @import "tailwindcss";
 
 :root {
-  --bg-dark: #fcfbf7;
+  --bg-dark: #f7f7f7;
   --bg-card: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --accent: #facc15;
-  --accent-hover: #eab308;
-  --hover: rgba(250, 204, 21, 0.15);
+  --text-main: #141414;
+  --text-muted: #454545;
+  --accent: #c8102e;
+  --accent-hover: #a50d25;
+  --hover: rgba(200, 16, 46, 0.15);
   --spice-1: #22c55e;
-  --spice-2: #eab308;
+  --spice-2: #a50d25;
   --spice-3: #ef4444;
   --spice-4: #f43f5e;
   --spice-5: #9f1239;
@@ -49,10 +49,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(250, 204, 21, 0.08);
+  background: rgba(200, 16, 46, 0.08);
   padding: 1.5rem;
   border-radius: 16px;
-  border: 1px solid rgba(250, 204, 21, 0.2);
+  border: 1px solid rgba(200, 16, 46, 0.2);
 }
 
 .sticky-header {
@@ -75,7 +75,7 @@ body {
 .header h1 {
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(to right, #ca8a04, #eab308);
+  background: linear-gradient(to right, #a50d25, #a50d25);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -106,7 +106,7 @@ body {
 .header-cart-btn:hover {
   transform: scale(1.05);
   background: var(--accent);
-  color: black;
+  color: #ffffff;
 }
 
 .category-tabs {
@@ -140,9 +140,9 @@ body {
 
 .tab-btn.active {
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 4px 15px rgba(234, 179, 8, 0.3);
+  box-shadow: 0 4px 15px rgba(200, 16, 46, 0.3);
 }
 
 .food-list {
@@ -220,7 +220,7 @@ body {
 
 .food-card.selected {
   border: 2px solid var(--accent);
-  box-shadow: 0 0 20px rgba(234, 179, 8, 0.25);
+  box-shadow: 0 0 20px rgba(200, 16, 46, 0.25);
 }
 
 .food-card:hover {
@@ -297,7 +297,7 @@ body {
 
 .order-btn {
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   border-radius: 10px;
   padding: 0.65rem 1rem;
@@ -413,7 +413,7 @@ body {
 
 .spice-option.selected {
   border-color: var(--selected-color, var(--accent));
-  background: rgba(234, 179, 8, 0.08);
+  background: rgba(200, 16, 46, 0.08);
 }
 
 .spice-name {
@@ -429,7 +429,7 @@ body {
 .confirm-btn {
   width: 100%;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   border-radius: 12px;
   padding: 1.25rem;
@@ -437,12 +437,12 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, transform 0.1s ease;
-  box-shadow: 0 10px 20px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 10px 20px rgba(200, 16, 46, 0.2);
 }
 
 .confirm-btn:hover {
   background: var(--accent-hover);
-  box-shadow: 0 10px 25px rgba(234, 179, 8, 0.25);
+  box-shadow: 0 10px 25px rgba(200, 16, 46, 0.25);
 }
 
 .confirm-btn:active {
@@ -664,7 +664,7 @@ body {
 .form-group textarea:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 0 0 2px rgba(200, 16, 46, 0.2);
 }
 
 .checkout-success {
@@ -766,7 +766,7 @@ body {
 
 .option-card.selected {
   border-color: var(--accent);
-  background: rgba(234, 179, 8, 0.08);
+  background: rgba(200, 16, 46, 0.08);
   box-shadow: 0 0 0 1px var(--accent);
 }
 
@@ -781,7 +781,7 @@ body {
   font-size: 0.74rem;
   font-weight: 500;
   line-height: 1.35;
-  color: #64748b;
+  color: #5a5a5a;
   margin: -0.3rem 0 0.45rem;
   white-space: pre-line;
 }
@@ -797,7 +797,7 @@ body {
   top: -8px;
   right: -8px;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -832,7 +832,7 @@ body {
 
 .option-row.selected {
   border-color: var(--accent);
-  background: rgba(234, 179, 8, 0.08);
+  background: rgba(200, 16, 46, 0.08);
   box-shadow: 0 0 0 1px var(--accent);
 }
 
@@ -896,7 +896,7 @@ body {
 
 .nav-btn.next {
   background: var(--accent);
-  color: black;
+  color: #ffffff;
 }
 
 .nav-btn.next:hover {
@@ -957,7 +957,7 @@ body {
 }
 
 .top-nav .nav-btn.active {
-  background: rgba(234, 179, 8, 0.15);
+  background: rgba(200, 16, 46, 0.15);
   color: var(--text-main);
   border-color: var(--accent);
 }
@@ -1011,7 +1011,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
@@ -1108,14 +1108,14 @@ body {
 }
 
 .status-badge {
-  background: rgba(234, 179, 8, 0.2);
+  background: rgba(200, 16, 46, 0.2);
   color: var(--spice-2);
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
-  border: 1px solid rgba(234, 179, 8, 0.3);
+  border: 1px solid rgba(200, 16, 46, 0.3);
 }
 
 .order-items {
@@ -1235,7 +1235,7 @@ body {
 .pos-table-label {
   font-size: 0.73rem;
   font-weight: 600;
-  color: var(--text-main);
+  color: #ffffff;
   background: var(--accent);
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
@@ -1277,7 +1277,7 @@ body {
   align-items: center;
   gap: 0.55rem;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   padding: 0.48rem 1rem 0.48rem 0.75rem;
   border-radius: 12px;
@@ -1285,14 +1285,14 @@ body {
   font-weight: 700;
   position: relative;
   transition: all 0.18s;
-  box-shadow: 0 3px 14px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 3px 14px rgba(200, 16, 46, 0.2);
   font-family: inherit;
 }
 
 .pos-cart-btn:hover {
   background: var(--accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 5px 18px rgba(234, 179, 8, 0.3);
+  box-shadow: 0 5px 18px rgba(200, 16, 46, 0.3);
 }
 
 .pos-cart-info {
@@ -1391,7 +1391,7 @@ body {
 }
 
 .pos-cat-btn.active {
-  background: rgba(234, 179, 8, 0.15);
+  background: rgba(200, 16, 46, 0.15);
   color: var(--text-main);
   border-left-color: var(--accent);
 }
@@ -1520,14 +1520,14 @@ body {
 .pos-card-price.unavailable {
   font-size: 0.78rem;
   font-weight: 800;
-  color: #94a3b8;
+  color: #7a7a7a;
   letter-spacing: 0;
 }
 
 .pos-food-card.in-cart {
   border-color: var(--accent);
-  background: rgba(234, 179, 8, 0.08);
-  box-shadow: 0 0 0 1px var(--accent), 0 4px 18px rgba(234, 179, 8, 0.15);
+  background: rgba(200, 16, 46, 0.08);
+  box-shadow: 0 0 0 1px var(--accent), 0 4px 18px rgba(200, 16, 46, 0.15);
 }
 
 .pos-card-img-wrap {
@@ -1555,7 +1555,7 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 2.2rem;
-  background: rgba(234, 179, 8, 0.08);
+  background: rgba(200, 16, 46, 0.08);
 }
 
 .pos-qty-badge {
@@ -1563,7 +1563,7 @@ body {
   top: 6px;
   right: 6px;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   font-size: 0.72rem;
   font-weight: 800;
   min-width: 22px;
@@ -1630,7 +1630,7 @@ body {
   height: 30px;
   border-radius: 50%;
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   cursor: pointer;
   display: flex;
@@ -1638,7 +1638,7 @@ body {
   justify-content: center;
   transition: all 0.18s;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 2px 8px rgba(200, 16, 46, 0.2);
 }
 
 .pos-add-btn:hover { background: var(--accent-hover); transform: scale(1.12); }
@@ -1671,7 +1671,7 @@ body {
 
 .pos-stepper-btn.minus { background: rgba(0, 0, 0, 0.05); color: var(--text-main); }
 .pos-stepper-btn.minus:hover { background: rgba(0, 0, 0, 0.08); }
-.pos-stepper-btn.plus { background: var(--accent); color: black; }
+.pos-stepper-btn.plus { background: var(--accent); color: #ffffff; }
 .pos-stepper-btn.plus:hover { background: var(--accent-hover); }
 
 .pos-stepper-qty {

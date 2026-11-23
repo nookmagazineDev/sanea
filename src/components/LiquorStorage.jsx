@@ -198,17 +198,17 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
 
   const cardStyle = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem' };
   const inputStyle = { width: '100%', padding: '0.7rem 0.9rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, color: 'white', fontSize: '0.95rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' };
-  const labelStyle = { display: 'block', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginBottom: '0.4rem' };
+  const labelStyle = { display: 'block', color: 'rgba(255,255,255,0.72)', fontSize: '0.8rem', marginBottom: '0.4rem' };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg, #0f0f0f)', color: 'white', fontFamily: 'inherit' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
           <ChevronLeft size={20} /> {lang === 'th' ? 'กลับ' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1 }}>
-          <Wine size={24} color="#a78bfa" />
+          <Wine size={24} color="#f07a8a" />
           <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>
             {lang === 'th' ? 'ฝากเหล้า / เบิกเหล้า' : 'Liquor Storage'}
           </h1>
@@ -217,7 +217,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
           <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           {lang === 'th' ? 'รีเฟรช' : 'Refresh'}
         </button>
-        <button onClick={() => openModal('deposit')} style={{ background: '#7c3aed', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', padding: '0.55rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.9rem' }}>
+        <button onClick={() => openModal('deposit')} style={{ background: '#c8102e', border: 'none', borderRadius: 8, color: 'white', cursor: 'pointer', padding: '0.55rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, fontSize: '0.9rem' }}>
           <ArrowDownCircle size={17} /> {lang === 'th' ? 'ฝากใหม่' : 'Deposit'}
         </button>
       </div>
@@ -226,7 +226,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
           {[['stock', `🍾 ${lang === 'th' ? 'สต็อกคงเหลือ' : 'Current Stock'} (${stock.length})`], ['history', `📋 ${lang === 'th' ? 'ประวัติ' : 'History'} (${records.length})`]].map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '0.45rem 1.1rem', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontSize: '0.88rem', fontWeight: activeTab === key ? 700 : 400, background: activeTab === key ? 'rgba(124,58,237,0.2)' : 'rgba(255,255,255,0.04)', borderColor: activeTab === key ? '#7c3aed' : 'rgba(255,255,255,0.12)', color: activeTab === key ? '#a78bfa' : 'rgba(255,255,255,0.6)' }}>
+            <button key={key} onClick={() => setActiveTab(key)} style={{ padding: '0.45rem 1.1rem', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontSize: '0.88rem', fontWeight: activeTab === key ? 700 : 400, background: activeTab === key ? 'rgba(200, 16, 46, 0.2)' : 'rgba(255,255,255,0.04)', borderColor: activeTab === key ? '#c8102e' : 'rgba(255,255,255,0.12)', color: activeTab === key ? '#f07a8a' : 'rgba(255,255,255,0.6)' }}>
               {label}
             </button>
           ))}
@@ -235,46 +235,46 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
         {/* Stock Tab */}
         {activeTab === 'stock' && (
           loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.72)' }}>
               <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.75rem' }} />
               <p>กำลังโหลด...</p>
             </div>
           ) : stock.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: 'center', padding: '3rem' }}>
               <Wine size={52} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-              <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0 }}>ยังไม่มีเหล้าฝากอยู่</p>
+              <p style={{ color: 'rgba(255,255,255,0.72)', margin: 0 }}>ยังไม่มีเหล้าฝากอยู่</p>
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {stock.map((item, i) => (
                 <div key={i} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 10, padding: '0.6rem 1rem', textAlign: 'center', minWidth: 70 }}>
-                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#a78bfa', lineHeight: 1 }}>{item.qty}</div>
-                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{item.unit || 'ขวด'}</div>
+                  <div style={{ background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.3)', borderRadius: 10, padding: '0.6rem 1rem', textAlign: 'center', minWidth: 70 }}>
+                    <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f07a8a', lineHeight: 1 }}>{item.qty}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.72)', marginTop: 2 }}>{item.unit || 'ขวด'}</div>
                   </div>
                   <div style={{ flex: 1, minWidth: 160 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <div style={{ fontWeight: 800, fontSize: '1rem', color: 'white' }}>{item.customerName}</div>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20, background: item.category === 'เบียร์' ? 'rgba(234,179,8,0.15)' : 'rgba(168,85,247,0.15)', color: item.category === 'เบียร์' ? '#d84518' : '#a78bfa', border: `1px solid ${item.category === 'เบียร์' ? 'rgba(234,179,8,0.3)' : 'rgba(168,85,247,0.3)'}` }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 20, background: item.category === 'เบียร์' ? 'rgba(200, 16, 46, 0.15)' : 'rgba(200, 16, 46, 0.15)', color: item.category === 'เบียร์' ? '#8e0b20' : '#f07a8a', border: `1px solid ${item.category === 'เบียร์' ? 'rgba(200, 16, 46, 0.3)' : 'rgba(200, 16, 46, 0.3)'}` }}>
                         {item.category === 'เบียร์' ? '🍺 เบียร์' : '🥃 เหล้า'}
                       </span>
                     </div>
-                    {item.phone && <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.78rem', marginTop: 1 }}>📞 {item.phone}</div>}
-                    <div style={{ color: '#a78bfa', fontWeight: 600, fontSize: '0.9rem', marginTop: 2 }}>{item.productName}</div>
+                    {item.phone && <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.78rem', marginTop: 1 }}>📞 {item.phone}</div>}
+                    <div style={{ color: '#f07a8a', fontWeight: 600, fontSize: '0.9rem', marginTop: 2 }}>{item.productName}</div>
                     {item.lastDepositAt && (
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.75rem', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <ArrowDownCircle size={11} /> ฝากล่าสุด {fmtDate(item.lastDepositAt)}
                         {item.lastDepositStaff && <span style={{ color: '#22c55e' }}>โดย {item.lastDepositStaff}</span>}
                       </div>
                     )}
                     {item.lastWithdrawAt && (
-                      <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.75rem', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <ArrowUpCircle size={11} /> เบิกล่าสุด {fmtDate(item.lastWithdrawAt)}
-                        {item.lastWithdrawStaff && <span style={{ color: '#f97316' }}>โดย {item.lastWithdrawStaff}</span>}
+                        {item.lastWithdrawStaff && <span style={{ color: '#ff5c70' }}>โดย {item.lastWithdrawStaff}</span>}
                       </div>
                     )}
                   </div>
-                  <button onClick={() => openConfirmWithdraw(item)} style={{ background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 8, color: '#f97316', cursor: 'pointer', padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                  <button onClick={() => openConfirmWithdraw(item)} style={{ background: 'rgba(200, 16, 46, 0.12)', border: '1px solid rgba(200, 16, 46, 0.35)', borderRadius: 8, color: '#ff5c70', cursor: 'pointer', padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                     <ArrowUpCircle size={15} /> เบิก
                   </button>
                 </div>
@@ -287,7 +287,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
         {activeTab === 'history' && (
           <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
             {history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
+              <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.72)' }}>
                 <Clock size={40} style={{ opacity: 0.25, marginBottom: '0.75rem' }} />
                 <p style={{ margin: 0 }}>ยังไม่มีประวัติ</p>
               </div>
@@ -296,29 +296,29 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
                     {['วันเวลา', 'ประเภท', 'ชื่อลูกค้า', 'เบอร์โทร', 'สินค้า', 'จำนวน', 'หมายเหตุ', 'พนักงาน'].map(h => (
-                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>{h}</th>
+                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'rgba(255,255,255,0.72)', fontWeight: 600, fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((r, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{fmtDate(r.timestamp)}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{fmtDate(r.timestamp)}</td>
                       <td style={{ padding: '0.7rem 1rem' }}>
-                        <span style={{ padding: '0.2rem 0.65rem', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700, background: r.type === 'ฝาก' ? 'rgba(124,58,237,0.15)' : 'rgba(249,115,22,0.15)', color: r.type === 'ฝาก' ? '#a78bfa' : '#f97316', border: `1px solid ${r.type === 'ฝาก' ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)'}` }}>
+                        <span style={{ padding: '0.2rem 0.65rem', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700, background: r.type === 'ฝาก' ? 'rgba(200, 16, 46, 0.15)' : 'rgba(200, 16, 46, 0.15)', color: r.type === 'ฝาก' ? '#f07a8a' : '#c8102e', border: `1px solid ${r.type === 'ฝาก' ? 'rgba(200, 16, 46, 0.3)' : 'rgba(200, 16, 46, 0.3)'}` }}>
                           {r.type === 'ฝาก' ? '⬇ ฝาก' : '⬆ เบิก'}
                         </span>
                       </td>
                       <td style={{ padding: '0.7rem 1rem', fontWeight: 600 }}>{r.customerName}</td>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>{r.phone || '—'}</td>
-                      <td style={{ padding: '0.7rem 1rem', color: '#a78bfa' }}>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.82rem' }}>{r.phone || '—'}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: '#f07a8a' }}>
                         {r.productName}
-                        {r.category && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: r.category === 'เบียร์' ? '#d84518' : 'rgba(255,255,255,0.4)' }}>({r.category})</span>}
+                        {r.category && <span style={{ marginLeft: 6, fontSize: '0.72rem', color: r.category === 'เบียร์' ? '#8e0b20' : 'rgba(255,255,255,0.4)' }}>({r.category})</span>}
                       </td>
                       <td style={{ padding: '0.7rem 1rem', fontWeight: 700, textAlign: 'center' }}>{r.qty} {r.unit || ''}</td>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>{r.note || '—'}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.82rem' }}>{r.note || '—'}</td>
                       <td style={{ padding: '0.7rem 1rem' }}>
-                        <span style={{ color: r.type === 'ฝาก' ? '#22c55e' : '#f97316', fontWeight: 600, fontSize: '0.82rem' }}>{r.staff || '—'}</span>
+                        <span style={{ color: r.type === 'ฝาก' ? '#22c55e' : '#c8102e', fontWeight: 600, fontSize: '0.82rem' }}>{r.staff || '—'}</span>
                       </td>
                     </tr>
                   ))}
@@ -333,54 +333,54 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
       {/* Confirm Withdraw Modal */}
       {confirmItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }} onClick={() => setConfirmItem(null)}>
-          <div style={{ background: '#1a1a2e', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 18, padding: '1.75rem', width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#1a1a2e', border: '1px solid rgba(200, 16, 46, 0.3)', borderRadius: 18, padding: '1.75rem', width: '100%', maxWidth: 400 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-                <ArrowUpCircle size={20} color="#f97316" /> ยืนยันการเบิก
+                <ArrowUpCircle size={20} color="#c8102e" /> ยืนยันการเบิก
               </h2>
-              <button onClick={() => setConfirmItem(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><X size={22} /></button>
+              <button onClick={() => setConfirmItem(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer' }}><X size={22} /></button>
             </div>
 
-            <div style={{ background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 12, padding: '1.1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ background: 'rgba(200, 16, 46, 0.07)', border: '1px solid rgba(200, 16, 46, 0.2)', borderRadius: 12, padding: '1.1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>ลูกค้า</span>
+                <span style={{ color: 'rgba(255,255,255,0.72)' }}>ลูกค้า</span>
                 <strong style={{ color: 'white' }}>{confirmItem.customerName}</strong>
               </div>
               {confirmItem.phone && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>เบอร์โทร</span>
-                  <span style={{ color: 'rgba(255,255,255,0.7)' }}>📞 {confirmItem.phone}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.72)' }}>เบอร์โทร</span>
+                  <span style={{ color: 'rgba(255,255,255,0.88)' }}>📞 {confirmItem.phone}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>สินค้า</span>
-                <span style={{ color: '#a78bfa', fontWeight: 600 }}>{confirmItem.productName}</span>
+                <span style={{ color: 'rgba(255,255,255,0.72)' }}>สินค้า</span>
+                <span style={{ color: '#f07a8a', fontWeight: 600 }}>{confirmItem.productName}</span>
               </div>
               {confirmItem.lastDepositNote && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', gap: '0.75rem' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.45)', flexShrink: 0 }}>หมายเหตุ (ฝาก)</span>
-                  <span style={{ color: 'rgba(255,255,255,0.75)', textAlign: 'right' }}>{confirmItem.lastDepositNote}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.72)', flexShrink: 0 }}>หมายเหตุ (ฝาก)</span>
+                  <span style={{ color: 'rgba(255,255,255,0.88)', textAlign: 'right' }}>{confirmItem.lastDepositNote}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.5)' }}>จำนวนที่เบิก</span>
-                <strong style={{ color: '#f97316', fontSize: '1.1rem' }}>{confirmItem.qty} {confirmItem.unit || 'ขวด'}</strong>
+                <span style={{ color: 'rgba(255,255,255,0.72)' }}>จำนวนที่เบิก</span>
+                <strong style={{ color: '#ff5c70', fontSize: '1.1rem' }}>{confirmItem.qty} {confirmItem.unit || 'ขวด'}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.4)' }}>พนักงาน</span>
+                <span style={{ color: 'rgba(255,255,255,0.72)' }}>พนักงาน</span>
                 <span style={{ color: '#22c55e' }}>{currentUser?.username || 'ไม่ระบุ'}</span>
               </div>
             </div>
 
             {saveMsg && (
-              <div style={{ marginBottom: '0.85rem', padding: '0.65rem 0.9rem', borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: '#ef4444', fontSize: '0.88rem' }}>{saveMsg}</div>
+              <div style={{ marginBottom: '0.85rem', padding: '0.65rem 0.9rem', borderRadius: 8, background: 'rgba(239,68,68,0.12)', color: '#ff5c70', fontSize: '0.88rem' }}>{saveMsg}</div>
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={() => setConfirmItem(null)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'white', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
                 ยกเลิก
               </button>
-              <button onClick={handleWithdrawConfirm} disabled={saving} style={{ flex: 2, padding: '0.8rem', background: saving ? '#444' : '#ea580c', border: 'none', color: 'white', borderRadius: 10, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <button onClick={handleWithdrawConfirm} disabled={saving} style={{ flex: 2, padding: '0.8rem', background: saving ? '#444' : '#c8102e', border: 'none', color: 'white', borderRadius: 10, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                 <ArrowUpCircle size={17} /> {saving ? 'กำลังบันทึก...' : 'ยืนยันเบิก'}
               </button>
             </div>
@@ -393,9 +393,9 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
           <div style={{ background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 18, padding: '1.75rem', width: '100%', maxWidth: 440 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-                <ArrowDownCircle size={20} color="#a78bfa" /> ฝากเหล้า
+                <ArrowDownCircle size={20} color="#f07a8a" /> ฝากเหล้า
               </h2>
-              <button onClick={() => setModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><X size={22} /></button>
+              <button onClick={() => setModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer' }}><X size={22} /></button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -422,7 +422,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                   {productOptions.map(name => <option key={name} value={name} />)}
                 </datalist>
                 {productOptions.length > 0 && (
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
                     มี {productOptions.length} รายการจากหมวดเหล้า/เบียร์/โชจู/มิกเซอร์ ให้เลือก
                   </p>
                 )}
@@ -433,8 +433,8 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                 <label style={labelStyle}>ประเภท *</label>
                 <div style={{ display: 'flex', gap: '0.6rem' }}>
                   {[
-                    { key: 'เหล้า', label: '🥃 เหล้า', color: '#a78bfa', bg: 'rgba(168,85,247,0.18)', bd: 'rgba(168,85,247,0.6)' },
-                    { key: 'เบียร์', label: '🍺 เบียร์', color: '#d84518', bg: 'rgba(234,179,8,0.18)', bd: 'rgba(234,179,8,0.6)' },
+                    { key: 'เหล้า', label: '🥃 เหล้า', color: '#f07a8a', bg: 'rgba(200, 16, 46, 0.18)', bd: 'rgba(200, 16, 46, 0.6)' },
+                    { key: 'เบียร์', label: '🍺 เบียร์', color: '#ff5c70', bg: 'rgba(200, 16, 46, 0.18)', bd: 'rgba(200, 16, 46, 0.6)' },
                   ].map(c => {
                     const active = form.category === c.key;
                     return (
@@ -464,7 +464,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                       {LIQUOR_UNITS.map(u => <option key={u} value={u} style={{ color: '#000' }}>{u}</option>)}
                     </select>
                   </div>
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', margin: '0.4rem 0 0' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.75rem', margin: '0.4rem 0 0' }}>
                     เช่น เหลือ 70% / 350 ml / 0.5 ขวด
                   </p>
                 </div>
@@ -475,7 +475,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
                 <input style={inputStyle} placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '0.6rem 0.9rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.45)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '0.6rem 0.9rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.72)' }}>
                 พนักงาน: <strong style={{ color: '#22c55e' }}>{currentUser?.username || 'ไม่ระบุ'}</strong>
               </div>
             </div>
@@ -486,7 +486,7 @@ const LiquorStorage = ({ currentUser, lang = 'th', onBack, menu = [], categories
               </div>
             )}
 
-            <button onClick={handleSave} disabled={saving} style={{ width: '100%', marginTop: '1.25rem', padding: '0.85rem', border: 'none', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '1rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: saving ? '#444' : '#7c3aed', color: 'white' }}>
+            <button onClick={handleSave} disabled={saving} style={{ width: '100%', marginTop: '1.25rem', padding: '0.85rem', border: 'none', borderRadius: 12, cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: '1rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: saving ? '#444' : '#c8102e', color: 'white' }}>
               <Save size={18} /> {saving ? 'กำลังบันทึก...' : 'บันทึกฝากเหล้า'}
             </button>
           </div>

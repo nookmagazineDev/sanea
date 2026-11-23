@@ -100,13 +100,13 @@ const TableOrderView = ({
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-dark, #fcfbf7)',
+      background: 'var(--bg-dark, #f7f7f7)',
       display: 'flex',
       flexDirection: 'column'
     }}>
       {/* Top Header Bar */}
       <div style={{
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        background: 'linear-gradient(135deg, #222222 0%, #141414 100%)',
         borderBottom: '1px solid rgba(255,255,255,0.1)',
         padding: '0.9rem 1.25rem',
         display: 'flex',
@@ -152,7 +152,7 @@ const TableOrderView = ({
             }}
             title={lang === 'th' ? 'กลับไปหน้าเลือกโต๊ะ' : 'Back to Table Selection'}
           >
-            <LayoutGrid size={16} color="#facc15" />
+            <LayoutGrid size={16} color="#c8102e" />
             <span>{lang === 'th' ? 'เลือกโต๊ะ' : 'Tables'}</span>
           </button>
         )}
@@ -169,12 +169,12 @@ const TableOrderView = ({
                   style={{
                     fontSize: '0.85rem',
                     fontWeight: '700',
-                    color: '#fef08a',
-                    background: 'rgba(245,158,11,0.25)',
+                    color: '#f5b5bf',
+                    background: 'rgba(200, 16, 46, 0.25)',
                     padding: '2px 10px',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    border: '1px solid rgba(245,158,11,0.5)'
+                    border: '1px solid rgba(200, 16, 46, 0.5)'
                   }}
                 >
                   ({currentCount} {lang === 'th' ? 'ท่าน' : 'pax'})
@@ -186,10 +186,10 @@ const TableOrderView = ({
                 onClick={() => openAction('move')}
                 disabled={rowsOfTable.length === 0}
                 style={{
-                  background: 'rgba(56,189,248,0.2)',
-                  border: '1px solid rgba(56,189,248,0.4)',
+                  background: 'rgba(240, 122, 138, 0.2)',
+                  border: '1px solid rgba(240, 122, 138, 0.4)',
                   borderRadius: '6px',
-                  color: '#38bdf8',
+                  color: '#f07a8a',
                   padding: '3px 10px',
                   fontSize: '0.78rem',
                   fontWeight: '700',
@@ -223,7 +223,7 @@ const TableOrderView = ({
                   background: 'rgba(192,132,252,0.2)',
                   border: '1px solid rgba(192,132,252,0.4)',
                   borderRadius: '6px',
-                  color: '#c084fc',
+                  color: '#f07a8a',
                   padding: '3px 10px',
                   fontSize: '0.78rem',
                   fontWeight: '700',
@@ -236,7 +236,7 @@ const TableOrderView = ({
               </button>
             </div>
           </div>
-          <p style={{ margin: 0, fontSize: '0.82rem', color: '#94a3b8', marginTop: '2px' }}>
+          <p style={{ margin: 0, fontSize: '0.82rem', color: '#7a7a7a', marginTop: '2px' }}>
             {lang === 'th'
               ? `${rowsOfTable.length} รายการ${paidItems.length > 0 ? ` (จ่ายแล้ว ${paidItems.length})` : ''}`
               : `${rowsOfTable.length} items${paidItems.length > 0 ? ` (${paidItems.length} paid)` : ''}`}
@@ -266,10 +266,10 @@ const TableOrderView = ({
       <div style={{
         display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
         padding: '0.85rem 1.25rem',
-        background: '#f8fafc',
-        borderBottom: '1px solid #e2e8f0'
+        background: '#f8f8f8',
+        borderBottom: '1px solid #e4e4e4'
       }}>
-        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#222222', whiteSpace: 'nowrap' }}>
           👤 {lang === 'th' ? 'ประเภทลูกค้า' : 'Customer'}
         </span>
         <select
@@ -283,8 +283,8 @@ const TableOrderView = ({
             : undefined}
           style={{
             padding: '0.5rem 0.75rem', borderRadius: '8px',
-            background: saleTypeLocked ? '#f1f5f9' : '#ffffff', color: '#0f172a',
-            border: '2px solid #cbd5e1', fontSize: '0.9rem',
+            background: saleTypeLocked ? '#f1f1f1' : '#ffffff', color: '#141414',
+            border: '2px solid #d0d0d0', fontSize: '0.9rem',
             fontWeight: 700, cursor: saleTypeLocked ? 'default' : 'pointer', maxWidth: '240px',
             opacity: 1,
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
@@ -303,8 +303,8 @@ const TableOrderView = ({
           placeholder={lang === 'th' ? 'ชื่อลูกค้า (ถ้ามี)' : 'Customer name (optional)'}
           style={{
             padding: '0.5rem 0.75rem', borderRadius: '8px',
-            background: '#ffffff', color: '#0f172a',
-            border: '2px solid #cbd5e1', fontSize: '0.9rem',
+            background: '#ffffff', color: '#141414',
+            border: '2px solid #d0d0d0', fontSize: '0.9rem',
             fontWeight: 600, width: '200px', flexShrink: 0,
             boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
           }}
@@ -320,14 +320,14 @@ const TableOrderView = ({
             alignItems: 'center',
             justifyContent: 'center',
             paddingTop: '4rem',
-            color: '#64748b',
+            color: '#5a5a5a',
             textAlign: 'center'
           }}>
-            <ShoppingBag size={64} style={{ opacity: 0.25, marginBottom: '1rem', color: '#475569' }} />
-            <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#334155', marginBottom: '0.3rem' }}>
+            <ShoppingBag size={64} style={{ opacity: 0.25, marginBottom: '1rem', color: '#454545' }} />
+            <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#333333', marginBottom: '0.3rem' }}>
               {lang === 'th' ? 'ยังไม่มีรายการอาหาร' : 'No orders yet'}
             </p>
-            <p style={{ fontSize: '0.88rem', color: '#64748b' }}>
+            <p style={{ fontSize: '0.88rem', color: '#5a5a5a' }}>
               {lang === 'th' ? 'กดปุ่มสั่งเพิ่มด้านล่างเพื่อสั่งอาหาร' : 'Tap the add button below to order'}
             </p>
           </div>
@@ -336,17 +336,17 @@ const TableOrderView = ({
             <label style={{
               display: 'flex', alignItems: 'center', gap: '0.6rem',
               padding: '0.4rem 0.25rem', cursor: 'pointer',
-              color: '#334155', fontSize: '0.9rem', fontWeight: 700
+              color: '#333333', fontSize: '0.9rem', fontWeight: 700
             }}>
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={toggleSelectAll}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#ea580c' }}
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#c8102e' }}
               />
               {lang === 'th' ? 'เลือกทั้งหมด' : 'Select all'}
               {selectedIdx.length > 0 && (
-                <span style={{ color: '#ea580c', fontWeight: 800 }}>
+                <span style={{ color: '#c8102e', fontWeight: 800 }}>
                   ({selectedIdx.length} {lang === 'th' ? 'รายการ' : 'selected'})
                 </span>
               )}
@@ -357,28 +357,28 @@ const TableOrderView = ({
               return (
                 <div key={idx} style={{
                   background: '#ffffff',
-                  border: `2px solid ${isSelected ? '#ea580c' : '#e2e8f0'}`,
+                  border: `2px solid ${isSelected ? '#c8102e' : '#e4e4e4'}`,
                   borderRadius: '14px',
                   padding: '1rem 1.1rem',
                   display: 'flex',
                   alignItems: 'flex-start',
                   gap: '0.75rem',
-                  boxShadow: isSelected ? '0 4px 12px rgba(234,88,12,0.15)' : '0 2px 6px rgba(0,0,0,0.03)',
+                  boxShadow: isSelected ? '0 4px 12px rgba(200, 16, 46, 0.15)' : '0 2px 6px rgba(0,0,0,0.03)',
                   transition: 'all 0.15s ease'
                 }}>
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => toggleSelect(idx)}
-                    style={{ width: '18px', height: '18px', marginTop: '0.35rem', cursor: 'pointer', flexShrink: 0, accentColor: '#ea580c' }}
+                    style={{ width: '18px', height: '18px', marginTop: '0.35rem', cursor: 'pointer', flexShrink: 0, accentColor: '#c8102e' }}
                   />
                   <div style={{
-                    background: '#fff7ed',
-                    border: '1px solid #ffedd5',
+                    background: '#fdf2f4',
+                    border: '1px solid #fbe0e4',
                     borderRadius: '8px',
                     padding: '0.35rem 0.65rem',
                     fontWeight: '800',
-                    color: '#c2410c',
+                    color: '#a50d25',
                     fontSize: '0.95rem',
                     flexShrink: 0,
                     minWidth: '36px',
@@ -387,18 +387,18 @@ const TableOrderView = ({
                     {Number(item.Quantity) || 1}x
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '1rem', lineHeight: '1.3' }}>
+                    <div style={{ fontWeight: '700', color: '#141414', fontSize: '1rem', lineHeight: '1.3' }}>
                       {lang === 'th' ? (item.ItemName || '') : (item.ItemNameEn || item.ItemName || '')}
                     </div>
                     {item.Options && (
-                      <div style={{ fontSize: '0.85rem', color: '#475569', marginTop: '0.25rem', fontWeight: 500 }}>
+                      <div style={{ fontSize: '0.85rem', color: '#454545', marginTop: '0.25rem', fontWeight: 500 }}>
                         {item.Options}
                       </div>
                     )}
                     {item.Timestamp && !isNaN(new Date(item.Timestamp)) && (
                       <div style={{
                         fontSize: '0.8rem',
-                        color: '#64748b',
+                        color: '#5a5a5a',
                         marginTop: '0.25rem',
                         fontWeight: 500
                       }}>
@@ -410,7 +410,7 @@ const TableOrderView = ({
                     )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-                    <span style={{ fontWeight: '800', color: '#0f172a', fontSize: '1.05rem' }}>
+                    <span style={{ fontWeight: '800', color: '#141414', fontSize: '1.05rem' }}>
                       ฿{subtotal.toLocaleString()}
                     </span>
                     <button
@@ -442,14 +442,14 @@ const TableOrderView = ({
           <div style={{ marginTop: pendingItems.length > 0 ? '1.25rem' : 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: '0.5rem', color: '#4338ca', fontWeight: 800, fontSize: '0.92rem'
+              gap: '0.5rem', color: '#141414', fontWeight: 800, fontSize: '0.92rem'
             }}>
               <span>💳 {lang === 'th' ? 'ลูกค้าสั่งเอง & ชำระแล้ว' : 'Self-ordered & paid'}</span>
               <span>฿{paidTotal.toLocaleString()}</span>
             </div>
             {paidItems.map((item, idx) => (
               <div key={'paid-' + idx} style={{
-                background: '#eef2ff',
+                background: '#f5f5f5',
                 border: '2px solid #c7d2fe',
                 borderRadius: '14px',
                 padding: '0.85rem 1rem',
@@ -459,7 +459,7 @@ const TableOrderView = ({
               }}>
                 <div style={{
                   background: '#ffffff', border: '1px solid #c7d2fe', borderRadius: '8px',
-                  padding: '0.35rem 0.65rem', fontWeight: 800, color: '#4338ca',
+                  padding: '0.35rem 0.65rem', fontWeight: 800, color: '#141414',
                   fontSize: '0.95rem', flexShrink: 0, minWidth: '36px', textAlign: 'center'
                 }}>
                   {Number(item.Quantity) || 1}x
@@ -469,12 +469,12 @@ const TableOrderView = ({
                     {lang === 'th' ? (item.ItemName || '') : (item.ItemNameEn || item.ItemName || '')}
                   </div>
                   {item.Options && (
-                    <div style={{ fontSize: '0.85rem', color: '#4338ca', marginTop: '0.25rem', fontWeight: 500 }}>
+                    <div style={{ fontSize: '0.85rem', color: '#141414', marginTop: '0.25rem', fontWeight: 500 }}>
                       {item.Options}
                     </div>
                   )}
                   {item.Timestamp && !isNaN(new Date(item.Timestamp)) && (
-                    <div style={{ fontSize: '0.8rem', color: '#6366f1', marginTop: '0.25rem', fontWeight: 500 }}>
+                    <div style={{ fontSize: '0.8rem', color: '#333333', marginTop: '0.25rem', fontWeight: 500 }}>
                       🕒 {new Date(item.Timestamp).toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB', {
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit'
@@ -482,7 +482,7 @@ const TableOrderView = ({
                     </div>
                   )}
                 </div>
-                <span style={{ fontWeight: 800, color: '#4338ca', fontSize: '1.05rem' }}>
+                <span style={{ fontWeight: 800, color: '#141414', fontSize: '1.05rem' }}>
                   ฿{((Number(item.ItemPrice) || 0) * (Number(item.Quantity) || 1)).toLocaleString()}
                 </span>
               </div>
@@ -498,7 +498,7 @@ const TableOrderView = ({
         left: 0,
         right: 0,
         background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
+        borderTop: '1px solid #e4e4e4',
         boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
         padding: '1rem 1.25rem 1.25rem',
         display: 'flex',
@@ -510,41 +510,41 @@ const TableOrderView = ({
           const hasCharges = sc > 0 || vat > 0;
           return (
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              background: '#f8f8f8',
+              border: '1px solid #e4e4e4',
               borderRadius: '12px',
               padding: '0.75rem 1rem',
               marginBottom: '0.1rem'
             }}>
               {hasCharges ? (
                 <div style={{ fontSize: '0.88rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#454545', fontWeight: 600 }}>
                     <span>{lang === 'th' ? 'ยอดอาหาร' : 'Subtotal'}</span>
                     <span>฿{totalAmount.toLocaleString()}</span>
                   </div>
                   {sc > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#d97706', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#a50d25', fontWeight: 600 }}>
                       <span>{lang === 'th' ? `เซอร์วิชชาร์จ ${settings.serviceCharge.rate}%` : `Service Charge ${settings.serviceCharge.rate}%`}</span>
                       <span>+฿{sc.toLocaleString()}</span>
                     </div>
                   )}
                   {vat > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2563eb', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#141414', fontWeight: 600 }}>
                       <span>{lang === 'th' ? `VAT ${settings.vat.rate}%` : `VAT ${settings.vat.rate}%`}</span>
                       <span>+฿{vat.toLocaleString()}</span>
                     </div>
                   )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.1rem', borderTop: '1px solid #cbd5e1', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
-                    <span style={{ color: '#0f172a' }}>{lang === 'th' ? 'ยอดรวม' : 'Total'}</span>
-                    <span style={{ color: '#ea580c', fontSize: '1.4rem' }}>฿{grand.toLocaleString()}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '1.1rem', borderTop: '1px solid #d0d0d0', paddingTop: '0.45rem', marginTop: '0.1rem' }}>
+                    <span style={{ color: '#141414' }}>{lang === 'th' ? 'ยอดรวม' : 'Total'}</span>
+                    <span style={{ color: '#c8102e', fontSize: '1.4rem' }}>฿{grand.toLocaleString()}</span>
                   </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#0f172a', fontWeight: '700', fontSize: '1rem' }}>
+                  <span style={{ color: '#141414', fontWeight: '700', fontSize: '1rem' }}>
                     {lang === 'th' ? 'ยอดรวม' : 'Total'}
                   </span>
-                  <span style={{ color: '#ea580c', fontWeight: '800', fontSize: '1.5rem' }}>
+                  <span style={{ color: '#c8102e', fontWeight: '800', fontSize: '1.5rem' }}>
                     ฿{totalAmount.toLocaleString()}
                   </span>
                 </div>
@@ -554,7 +554,7 @@ const TableOrderView = ({
         })()}
         {pendingItems.length === 0 && paidItems.length > 0 && (
           <div style={{
-            background: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '12px',
+            background: '#f5f5f5', border: '1px solid #c7d2fe', borderRadius: '12px',
             padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between',
             alignItems: 'center', color: '#3730a3', fontWeight: 700, fontSize: '0.92rem'
           }}>
@@ -567,10 +567,10 @@ const TableOrderView = ({
             onClick={onAddMore}
             style={{
               flex: 1,
-              background: '#f1f5f9',
-              border: '1px solid #cbd5e1',
+              background: '#f1f1f1',
+              border: '1px solid #d0d0d0',
               borderRadius: '14px',
-              color: '#0f172a',
+              color: '#141414',
               padding: '0.9rem',
               cursor: 'pointer',
               fontWeight: '700',
@@ -582,7 +582,7 @@ const TableOrderView = ({
               transition: 'all 0.2s'
             }}
           >
-            <Plus size={18} color="#0f172a" />
+            <Plus size={18} color="#141414" />
             {lang === 'th' ? 'สั่งเพิ่ม' : 'Add More'}
           </button>
           {pendingItems.length === 0 && paidItems.length > 0 && onCloseTable && (
@@ -596,7 +596,7 @@ const TableOrderView = ({
               }}
               style={{
                 flex: 2,
-                background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                background: 'linear-gradient(135deg, #333333 0%, #141414 100%)',
                 border: 'none', borderRadius: '14px', color: '#ffffff',
                 padding: '0.9rem', cursor: 'pointer', fontWeight: 800, fontSize: '1.05rem',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
@@ -618,10 +618,10 @@ const TableOrderView = ({
               }}
               style={{
                 flex: 2,
-                background: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : '#e2e8f0',
+                background: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'linear-gradient(135deg, #c8102e 0%, #a50d25 100%)' : '#e4e4e4',
                 border: 'none',
                 borderRadius: '14px',
-                color: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? '#ffffff' : '#94a3b8',
+                color: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? '#ffffff' : '#7a7a7a',
                 padding: '0.9rem',
                 cursor: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? 'pointer' : 'not-allowed',
                 fontWeight: '800',
@@ -630,7 +630,7 @@ const TableOrderView = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.5rem',
-                boxShadow: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? '0 4px 15px rgba(217, 119, 6, 0.35)' : 'none',
+                boxShadow: (currentUser?.canCheckout !== false || currentUser?.isAdmin) ? '0 4px 15px rgba(165, 13, 37, 0.35)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
@@ -660,21 +660,21 @@ const TableOrderView = ({
         }}>
           <div style={{
             background: '#ffffff',
-            border: '1px solid #e2e8f0',
+            border: '1px solid #e4e4e4',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '360px',
             padding: '1.5rem',
             boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', textAlign: 'center', fontWeight: '700' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#141414', textAlign: 'center', fontWeight: '700' }}>
               {actionLabel(actionType)}
             </h3>
 
             <div style={{
               marginBottom: '1rem', padding: '0.6rem 0.8rem', borderRadius: '10px',
-              background: '#f8fafc', border: '1px solid #e2e8f0',
-              fontSize: '0.85rem', color: '#475569', textAlign: 'center', fontWeight: '600'
+              background: '#f8f8f8', border: '1px solid #e4e4e4',
+              fontSize: '0.85rem', color: '#454545', textAlign: 'center', fontWeight: '600'
             }}>
               {actingIsAll
                 ? (lang === 'th' ? `ดำเนินการกับ "ทั้งโต๊ะ" (${actingItems.length} รายการ)` : `Acting on the whole table (${actingItems.length} items)`)
@@ -684,7 +684,7 @@ const TableOrderView = ({
             {!confirmStage ? (
               <>
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#334155', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333333', fontSize: '0.9rem', fontWeight: '600' }}>
                     {actionType === 'move'
                       ? (lang === 'th' ? 'ย้ายไปโต๊ะเบอร์ (โต๊ะว่าง):' : 'Move to table (empty):')
                       : actionType === 'merge'
@@ -699,9 +699,9 @@ const TableOrderView = ({
                     style={{
                       width: '100%',
                       background: '#ffffff',
-                      border: '2px solid #cbd5e1',
+                      border: '2px solid #d0d0d0',
                       borderRadius: '10px',
-                      color: '#0f172a',
+                      color: '#141414',
                       padding: '0.8rem',
                       fontSize: '1rem',
                       fontWeight: '700',
@@ -716,8 +716,8 @@ const TableOrderView = ({
                   <button
                     onClick={closeAction}
                     style={{
-                      flex: 1, background: '#f1f5f9', border: '1px solid #cbd5e1',
-                      borderRadius: '10px', color: '#0f172a', padding: '0.8rem',
+                      flex: 1, background: '#f1f1f1', border: '1px solid #d0d0d0',
+                      borderRadius: '10px', color: '#141414', padding: '0.8rem',
                       fontWeight: '700', cursor: 'pointer'
                     }}
                   >
@@ -728,7 +728,7 @@ const TableOrderView = ({
                     disabled={!targetTable || targetTable === String(tableNumber)}
                     style={{
                       flex: 1,
-                      background: actionType === 'move' ? '#2563eb' : actionType === 'merge' ? '#059669' : '#7c3aed',
+                      background: actionType === 'move' ? '#141414' : actionType === 'merge' ? '#059669' : '#c8102e',
                       border: 'none', borderRadius: '10px', color: '#ffffff', padding: '0.8rem',
                       fontWeight: '700', cursor: 'pointer',
                       opacity: (!targetTable || targetTable === String(tableNumber)) ? 0.5 : 1
@@ -744,11 +744,11 @@ const TableOrderView = ({
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
                   gap: '0.75rem', marginBottom: '1.5rem', textAlign: 'center'
                 }}>
-                  <AlertTriangle size={40} color="#ea580c" />
-                  <p style={{ margin: 0, color: '#0f172a', fontSize: '1rem', fontWeight: 700 }}>
+                  <AlertTriangle size={40} color="#c8102e" />
+                  <p style={{ margin: 0, color: '#141414', fontSize: '1rem', fontWeight: 700 }}>
                     {lang === 'th' ? 'ยืนยันอีกครั้ง' : 'Please confirm again'}
                   </p>
-                  <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                  <p style={{ margin: 0, color: '#454545', fontSize: '0.9rem', lineHeight: 1.5 }}>
                     {lang === 'th'
                       ? `${actionLabel(actionType)} ${actingIsAll ? 'ทั้งโต๊ะ' : `${actingItems.length} รายการ`} จากโต๊ะ ${tableNumber} ไปโต๊ะ ${targetTable} ?`
                       : `${actionLabel(actionType)} ${actingIsAll ? 'the whole table' : `${actingItems.length} items`} from table ${tableNumber} to table ${targetTable}?`}
@@ -759,8 +759,8 @@ const TableOrderView = ({
                   <button
                     onClick={() => setConfirmStage(false)}
                     style={{
-                      flex: 1, background: '#f1f5f9', border: '1px solid #cbd5e1',
-                      borderRadius: '10px', color: '#0f172a', padding: '0.8rem',
+                      flex: 1, background: '#f1f1f1', border: '1px solid #d0d0d0',
+                      borderRadius: '10px', color: '#141414', padding: '0.8rem',
                       fontWeight: '700', cursor: 'pointer'
                     }}
                   >
@@ -770,7 +770,7 @@ const TableOrderView = ({
                     onClick={runTableAction}
                     style={{
                       flex: 1,
-                      background: actionType === 'move' ? '#2563eb' : actionType === 'merge' ? '#059669' : '#7c3aed',
+                      background: actionType === 'move' ? '#141414' : actionType === 'merge' ? '#059669' : '#c8102e',
                       border: 'none', borderRadius: '10px', color: '#ffffff', padding: '0.8rem',
                       fontWeight: '700', cursor: 'pointer'
                     }}
@@ -799,14 +799,14 @@ const TableOrderView = ({
         }}>
           <div style={{
             background: '#ffffff',
-            border: '1px solid #e2e8f0',
+            border: '1px solid #e4e4e4',
             borderRadius: '16px',
             width: '100%',
             maxWidth: '320px',
             padding: '1.5rem',
             boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
           }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', textAlign: 'center', fontWeight: '700' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#141414', textAlign: 'center', fontWeight: '700' }}>
               {lang === 'th' ? 'แก้ไขจำนวนลูกค้า' : 'Edit Customer Count'}
             </h3>
             
@@ -817,9 +817,9 @@ const TableOrderView = ({
                   style={{
                     width: '44px', height: '44px',
                     borderRadius: '50%',
-                    background: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
+                    background: '#f1f1f1',
+                    border: '1px solid #d0d0d0',
+                    color: '#141414',
                     fontSize: '1.5rem',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -828,7 +828,7 @@ const TableOrderView = ({
                 >
                   -
                 </button>
-                <span style={{ fontSize: '1.6rem', fontWeight: '800', color: '#ea580c', minWidth: '40px' }}>
+                <span style={{ fontSize: '1.6rem', fontWeight: '800', color: '#c8102e', minWidth: '40px' }}>
                   {editCustomerCount}
                 </span>
                 <button
@@ -836,9 +836,9 @@ const TableOrderView = ({
                   style={{
                     width: '44px', height: '44px',
                     borderRadius: '50%',
-                    background: '#f1f5f9',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
+                    background: '#f1f1f1',
+                    border: '1px solid #d0d0d0',
+                    color: '#141414',
                     fontSize: '1.5rem',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -855,10 +855,10 @@ const TableOrderView = ({
                 onClick={() => setShowEditCustomerModal(false)}
                 style={{
                   flex: 1,
-                  background: '#f1f5f9',
-                  border: '1px solid #cbd5e1',
+                  background: '#f1f1f1',
+                  border: '1px solid #d0d0d0',
                   borderRadius: '10px',
-                  color: '#0f172a',
+                  color: '#141414',
                   padding: '0.8rem',
                   fontWeight: '700',
                   cursor: 'pointer'
@@ -874,7 +874,7 @@ const TableOrderView = ({
                 }}
                 style={{
                   flex: 1,
-                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  background: 'linear-gradient(135deg, #c8102e 0%, #a50d25 100%)',
                   border: 'none',
                   borderRadius: '10px',
                   color: '#ffffff',

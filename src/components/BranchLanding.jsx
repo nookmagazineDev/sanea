@@ -66,7 +66,7 @@ export default function BranchLanding({ branches = [], deviceBranch = '', loaded
             <div className="user-grid">
               {active.map(b => (
                 <button key={b.id} className="user-select-btn"
-                  style={String(b.id) === String(branchId) ? { borderColor: 'var(--accent)', background: 'rgba(234,179,8,0.08)' } : undefined}
+                  style={String(b.id) === String(branchId) ? { borderColor: 'var(--accent)', background: 'rgba(200, 16, 46, 0.08)' } : undefined}
                   onClick={() => { setBranchId(String(b.id)); setStep('mode'); }}>
                   <div className="user-avatar"><Building2 size={28} /></div>
                   <span>{b.name || b.id}</span>
@@ -89,7 +89,7 @@ export default function BranchLanding({ branches = [], deviceBranch = '', loaded
               <button style={card} onClick={() => onCustomer(branchId)}>
                 <Smartphone size={40} color="#16a34a" />
                 <b style={{ fontSize: '1.1rem' }}>{t('หน้าลูกค้า', 'Customer')}</b>
-                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('ลูกค้าสั่งอาหารและจ่ายเอง', 'Self-order & pay')}</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{t('ลูกค้าสแกน QR สั่งเอง ทานเสร็จค่อยจ่าย', 'Self-order, pay after eating')}</span>
               </button>
             </div>
             {!single && (

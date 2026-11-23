@@ -60,7 +60,7 @@
 }
 
 .user-avatar {
-  background: rgba(250, 204, 21, 0.15);
+  background: rgba(200, 16, 46, 0.15);
   color: var(--accent-hover);
   width: 64px;
   height: 64px;
@@ -68,7 +68,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid rgba(250, 204, 21, 0.3);
+  border: 2px solid rgba(200, 16, 46, 0.3);
 }
 
 .pin-container {
@@ -106,7 +106,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(250, 204, 21, 0.15);
+  background: rgba(200, 16, 46, 0.15);
   color: var(--text-main);
   padding: 0.5rem 1rem;
   border-radius: 20px;
@@ -186,7 +186,7 @@
 
 .default-admin-btn {
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   padding: 0.8rem 1.5rem;
   border-radius: 12px;

@@ -1,111 +1,122 @@
-import React from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UtensilsCrossed, Tag, LogOut, Store, Layers, FileSpreadsheet, Globe, Users, Settings, Package, FlaskConical, BarChart2, Building2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import {
+  LayoutDashboard, UtensilsCrossed, Tag, LogOut, Store, Layers, FileSpreadsheet, Globe, Users, Settings, Package,
+  FlaskConical, BarChart2, Building2, Images, Receipt, Crown, Printer, LayoutGrid, ListChecks, Menu, X
+} from 'lucide-react';
 import './Admin.css';
+
+// เมนูหลังบ้านจัดเป็นหมวด — admin = เห็นเฉพาะแอดมิน (แคชเชียร์ไม่เห็น) · สิทธิ์ตรงกับ Route ใน App.jsx
+const NAV_GROUPS = [
+  { th: 'ภาพรวม', en: 'Overview', items: [
+    { to: '/admin', end: true, icon: LayoutDashboard, th: 'แดชบอร์ด', en: 'Dashboard' },
+    { to: '/admin/reports', icon: BarChart2, th: 'รายงาน', en: 'Reports', admin: true }
+  ] },
+  { th: 'เมนูและการขาย', en: 'Menu & sales', items: [
+    { to: '/admin/menu', icon: UtensilsCrossed, th: 'จัดการเมนู', en: 'Menu' },
+    { to: '/admin/categories', icon: Layers, th: 'หมวดหมู่', en: 'Categories' },
+    { to: '/admin/branch-menu', icon: ListChecks, th: 'เมนูรายสาขา', en: 'Branch menu', admin: true },
+    { to: '/admin/member-menu', icon: Crown, th: 'เมนูสมาชิก', en: 'Member menu', admin: true },
+    { to: '/admin/promotions', icon: Tag, th: 'ส่วนลด', en: 'Discounts' }
+  ] },
+  { th: 'หน้าร้าน', en: 'Storefront', items: [
+    { to: '/admin/tables', icon: LayoutGrid, th: 'โต๊ะและราคา', en: 'Tables & prices' },
+    { to: '/admin/banner', icon: Images, th: 'แบนเนอร์', en: 'Banner', admin: true }
+  ] },
+  { th: 'วัตถุดิบ', en: 'Inventory', items: [
+    { to: '/admin/stock', icon: Package, th: 'สต็อกวัตถุดิบ', en: 'Stock' },
+    { to: '/admin/bom', icon: FlaskConical, th: 'สูตรอาหาร (BOM)', en: 'Recipes (BOM)', admin: true }
+  ] },
+  { th: 'ตั้งค่า', en: 'Settings', items: [
+    { to: '/admin/settings', icon: Settings, th: 'ตั้งค่าร้าน', en: 'Store settings', admin: true },
+    { to: '/admin/receipt', icon: Receipt, th: 'ใบเสร็จ', en: 'Receipt', admin: true },
+    { to: '/admin/printers', icon: Printer, th: 'เครื่องพิมพ์', en: 'Printers', admin: true },
+    { to: '/admin/branches', icon: Building2, th: 'สาขา', en: 'Branches', admin: true },
+    { to: '/admin/users', icon: Users, th: 'พนักงาน', en: 'Staff', admin: true }
+  ] }
+];
 
 const AdminLayout = ({ lang, setLang, isCashier = false, onLogout }) => {
   const navigate = useNavigate();
-  // แคชเชียร์เห็นเฉพาะหน้าเหล่านี้
-  const allowAll = !isCashier;
+  const location = useLocation();
+  const th = lang === 'th';
+  // จอแคบ (มือถือ/แท็บเล็ต): เมนูซ่อนเป็นลิ้นชัก กด ☰ เปิด · เลือกหน้าแล้วปิดเอง
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
+
+  const groups = NAV_GROUPS
+    .map(g => ({ ...g, items: g.items.filter(i => !i.admin || !isCashier) }))
+    .filter(g => g.items.length);
+  const current = groups.flatMap(g => g.items).find(i => (i.end ? location.pathname === i.to : location.pathname.startsWith(i.to)));
 
   return (
-    <div className="admin-container">
-       <aside className="admin-sidebar">
-          <div className="admin-logo">
-             <h2>👑 {lang === 'th' ? 'แผงควบคุม' : 'Admin Panel'}</h2>
-             <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>เสน่ห์</p>
+    <div className={`admin-container${open ? ' nav-open' : ''}`}>
+      {/* แถบบนสำหรับจอแคบ */}
+      <header className="admin-topbar">
+        <button type="button" className="admin-burger" onClick={() => setOpen(true)} aria-label={th ? 'เปิดเมนู' : 'Open menu'}>
+          <Menu size={22} />
+        </button>
+        <span className="admin-topbar-title">{current ? (th ? current.th : current.en) : (th ? 'หลังบ้าน' : 'Admin')}</span>
+      </header>
+      <div className="admin-backdrop" onClick={close} />
 
-             {/* กลับหน้าร้าน/ออกจากระบบ อยู่บนสุด — เดิมอยู่ท้ายเมนูยาว ๆ ต้องเลื่อนลงไปหา */}
-             <div className="admin-quick">
-                <button type="button" onClick={() => navigate('/index')}>
-                   <Store size={16} /> {lang === 'th' ? 'กลับหน้าร้าน' : 'Storefront'}
-                </button>
-                <button
-                   type="button"
-                   className="danger"
-                   onClick={() => { if (onLogout && window.confirm(lang === 'th' ? 'ออกจากระบบ?' : 'Log out?')) onLogout(); }}
-                >
-                   <LogOut size={16} /> {lang === 'th' ? 'ออกจากระบบ' : 'Logout'}
-                </button>
-             </div>
+      <aside className="admin-sidebar">
+        <div className="admin-logo">
+          <div className="admin-logo-row">
+            <div>
+              <h2>👑 {th ? 'หลังบ้าน' : 'Admin'}</h2>
+              <p>เสน่ห์</p>
+            </div>
+            <button type="button" className="admin-close" onClick={close} aria-label={th ? 'ปิดเมนู' : 'Close menu'}>
+              <X size={20} />
+            </button>
           </div>
-          <nav className="admin-nav">
-             <NavLink to="/admin" end className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <LayoutDashboard size={20} /> {lang === 'th' ? 'แดชบอร์ด' : 'Dashboard'}
-             </NavLink>
-             <NavLink to="/admin/menu" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <UtensilsCrossed size={20} /> {lang === 'th' ? 'จัดการเมนู' : 'Manage Menu'}
-             </NavLink>
-             {allowAll && (
-               <NavLink to="/admin/branch-menu" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <Store size={20} /> {lang === 'th' ? 'เมนูรายสาขา' : 'Branch Menu'}
-               </NavLink>
-             )}
-             <NavLink to="/admin/categories" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <Layers size={20} /> {lang === 'th' ? 'หมวดหมู่' : 'Categories'}
-             </NavLink>
-             <NavLink to="/admin/tables" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <LayoutDashboard size={20} /> {lang === 'th' ? 'จัดการโต๊ะ & ราคา' : 'Manage Tables'}
-             </NavLink>
-             {allowAll && (
-               <NavLink to="/admin/branches" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <Building2 size={20} /> {lang === 'th' ? 'สาขา' : 'Branches'}
-               </NavLink>
-             )}
-             {allowAll && (
-               <NavLink to="/admin/users" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <Users size={20} /> {lang === 'th' ? 'พนักงาน' : 'Users'}
-               </NavLink>
-             )}
-             <NavLink to="/admin/promotions" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <Tag size={20} /> {lang === 'th' ? 'ส่วนลด' : 'Discounts'}
-             </NavLink>
-             {allowAll && (
-               <NavLink to="/admin/printers" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <Store size={20} /> {lang === 'th' ? 'ปริ้นเตอร์' : 'Printers'}
-               </NavLink>
-             )}
-             {allowAll && (
-               <NavLink to="/admin/bom" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <FlaskConical size={20} /> {lang === 'th' ? 'BOM / สูตรอาหาร' : 'BOM'}
-               </NavLink>
-             )}
-             <NavLink to="/admin/stock" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                <Package size={20} /> {lang === 'th' ? 'สต็อกวัตถุดิบ' : 'Stock'}
-             </NavLink>
-             {allowAll && (
-               <NavLink to="/admin/settings" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <Settings size={20} /> {lang === 'th' ? 'ตั้งค่าร้าน' : 'Settings'}
-               </NavLink>
-             )}
-             {allowAll && (
-               <NavLink to="/admin/reports" className={({isActive}) => isActive ? "admin-link active" : "admin-link"}>
-                  <BarChart2 size={20} /> {lang === 'th' ? 'รายงาน' : 'Reports'}
-               </NavLink>
-             )}
-             {allowAll && (
-               <a href="/kitchen" className="admin-link" onClick={(e) => { e.preventDefault(); navigate('/kitchen'); }}>
-                  <Store size={20} /> {lang === 'th' ? 'หน้าจอห้องครัว' : 'Kitchen Monitor'}
-               </a>
-             )}
-             {allowAll && (
-               <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noopener noreferrer" className="admin-link">
-                  <FileSpreadsheet size={20} /> {lang === 'th' ? 'กูเกิลชีต (ข้อมูล)' : 'Google Sheets'}
-               </a>
-             )}
-             
-             <button 
-               className="admin-link" 
-               style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.1)', justifyContent: 'center' }} 
-               onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
-             >
-                <Globe size={20} /> {lang === 'th' ? 'English' : 'ภาษาไทย'}
-             </button>
-          </nav>
-       </aside>
-       <main className="admin-main">
-          <Outlet context={{ lang, isCashier, canSeeCost: !isCashier }} />
-       </main>
+          <div className="admin-quick">
+            <button type="button" onClick={() => navigate('/index')}>
+              <Store size={15} /> {th ? 'หน้าร้าน' : 'Storefront'}
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => { if (onLogout && window.confirm(th ? 'ออกจากระบบ?' : 'Log out?')) onLogout(); }}
+            >
+              <LogOut size={15} /> {th ? 'ออกจากระบบ' : 'Logout'}
+            </button>
+          </div>
+        </div>
+
+        <nav className="admin-nav">
+          {groups.map(g => (
+            <div className="admin-nav-group" key={g.en}>
+              <div className="admin-nav-heading">{th ? g.th : g.en}</div>
+              {g.items.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} onClick={close} className={({ isActive }) => (isActive ? 'admin-link active' : 'admin-link')}>
+                  {React.createElement(item.icon, { size: 18 })} <span>{th ? item.th : item.en}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+          {/* หน้าจอห้องครัว (/kitchen) ซ่อนลิงก์ไว้ก่อน — ร้านยังไม่มีจอสำหรับครัว (ใช้ใบครัวจาก Print Server) · หน้ายังเปิดได้ที่ /kitchen ถ้าต้องการใช้ภายหลัง */}
+          {!isCashier && (
+            <div className="admin-nav-group">
+              <div className="admin-nav-heading">{th ? 'อื่น ๆ' : 'Other'}</div>
+              <a href="https://docs.google.com/spreadsheets/" target="_blank" rel="noopener noreferrer" className="admin-link">
+                <FileSpreadsheet size={18} /> <span>{th ? 'กูเกิลชีต (ข้อมูล)' : 'Google Sheets'}</span>
+              </a>
+            </div>
+          )}
+        </nav>
+
+        <div className="admin-lang">
+          <button type="button" onClick={() => setLang(th ? 'en' : 'th')}>
+            <Globe size={16} /> {th ? 'English' : 'ภาษาไทย'}
+          </button>
+        </div>
+      </aside>
+
+      <main className="admin-main">
+        <Outlet context={{ lang, isCashier, canSeeCost: !isCashier }} />
+      </main>
     </div>
   );
 };

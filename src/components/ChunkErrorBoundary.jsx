@@ -62,14 +62,16 @@ class ChunkErrorBoundary extends React.Component {
     const isTh = this.props.lang !== 'en';
     const chunk = isChunkLoadError(error);
 
+    // overlay = หน้าต่างลอย (เช่น หน้าชำระเงิน) พังแล้วโชว์ทับทั้งจอ ไม่ใช่ไปโผล่ท้ายหน้าที่มองไม่เห็น
     return (
       <div style={{
         minHeight: '60vh', display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
-        padding: '2rem 1.25rem', textAlign: 'center'
+        padding: '2rem 1.25rem', textAlign: 'center',
+        ...(this.props.overlay ? { position: 'fixed', inset: 0, zIndex: 2000, background: '#ffffff' } : {})
       }}>
         <div style={{ fontSize: '2rem' }}>{reloading ? '⏳' : '⚠️'}</div>
-        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main, #0f172a)' }}>
+        <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main, #141414)' }}>
           {reloading
             ? (isTh ? 'มีเวอร์ชันใหม่ กำลังโหลดหน้าใหม่ให้...' : 'New version found — reloading...')
             : chunk
@@ -78,7 +80,7 @@ class ChunkErrorBoundary extends React.Component {
         </div>
         {!reloading && (
           <>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted, #64748b)', maxWidth: '420px', lineHeight: 1.6 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted, #5a5a5a)', maxWidth: '420px', lineHeight: 1.6 }}>
               {chunk
                 ? (isTh
                     ? 'มักเกิดตอนระบบเพิ่งอัปเดตเวอร์ชันใหม่ กดปุ่มด้านล่างเพื่อโหลดหน้าใหม่ ข้อมูลที่บันทึกไว้แล้วไม่หาย'
@@ -98,7 +100,7 @@ class ChunkErrorBoundary extends React.Component {
             <button
               onClick={() => window.location.reload()}
               style={{
-                marginTop: '0.35rem', background: '#ea580c', color: '#ffffff', border: 'none',
+                marginTop: '0.35rem', background: '#c8102e', color: '#ffffff', border: 'none',
                 borderRadius: '10px', padding: '0.65rem 1.25rem', fontWeight: 800,
                 fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit'
               }}

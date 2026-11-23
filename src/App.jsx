@@ -4,6 +4,7 @@ import OrderWizardModal from './components/OrderWizardModal';
 import PosSalesScreen from './components/PosSalesScreen';
 import PaymentApprovalListener from './components/PaymentApprovalListener';
 import ChunkErrorBoundary from './components/ChunkErrorBoundary';
+import PrintStatusToast from './components/PrintStatusToast';
 import TableOrderView from './components/TableOrderView';
 import LoginScreen from './components/LoginScreen';
 import BranchPicker from './components/BranchPicker';
@@ -23,10 +24,13 @@ const ManagePromotions = lazy(() => import('./components/admin/ManagePromotions'
 const ManageCategories = lazy(() => import('./components/admin/ManageCategories'));
 const ManageTables = lazy(() => import('./components/admin/ManageTables'));
 const ManagePrinters = lazy(() => import('./components/admin/ManagePrinters'));
+const ManageReceipt = lazy(() => import('./components/admin/ManageReceipt'));
+const ManageMemberMenu = lazy(() => import('./components/admin/ManageMemberMenu'));
 const ManageUsers = lazy(() => import('./components/admin/ManageUsers'));
 const ManageBranches = lazy(() => import('./components/admin/ManageBranches'));
 const ManageBranchMenu = lazy(() => import('./components/admin/ManageBranchMenu'));
 const ManageSettings = lazy(() => import('./components/admin/ManageSettings'));
+const ManageBanner = lazy(() => import('./components/admin/ManageBanner'));
 const ManageStock = lazy(() => import('./components/admin/ManageStock'));
 const ManageBOM = lazy(() => import('./components/admin/ManageBOM'));
 const Reports = lazy(() => import('./components/admin/Reports'));
@@ -38,9 +42,11 @@ import { resolvePopupSource, flattenPopupConfig, getPriceOptions, categoryDining
 import { priceForSaleType, readTablesConfig } from './utils/salePricing';
 import { categoryVisibleFor } from './utils/categoryVisibility';
 import './index.css';
-import { sendPrintJob, setReceiptHeader } from './utils/printServer';
+import { sendPrintJob, setReceiptHeader, setPrintBranch, getReceiptHeader } from './utils/printServer';
+import { receiptHeaderStyle } from './utils/receiptStyle';
 import { print80mm } from './utils/print80mm';
 import { getPrinterByType, getPrinters, mergeServerPrinters, printKitchenOrder, printPreBill } from './utils/printerRouting';
+import { makePayQr } from './utils/payQr';
 import { API_URL, setAuthToken, AUTH_REQUIRED_EVENT } from './utils/api';
 
 const MENU_ITEMS = [];
@@ -114,6 +120,14 @@ async function postOrderPayload(payload) {
 
 // ส่งบิลค้างซ้ำเองทุก ๆ เท่านี้ — กรณีเน็ตเครื่องปกติแต่ API/ฐานข้อมูลล่ม จะไม่มี event 'online' มาปลุก
 const PENDING_RETRY_MS = 90 * 1000;
+
+// '1.6.2' < '1.7.0' — เทียบเลขเวอร์ชัน Print Server ทีละหลัก
+const versionBelow = (v, min) => {
+  const a = String(v).split('.').map(n => parseInt(n, 10) || 0);
+  const b = String(min).split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0); }
+  return false;
+};
 
 function App() {
   const navigate = useNavigate();
@@ -292,6 +306,10 @@ function App() {
     try { return String(JSON.parse(localStorage.getItem('gas_all_data') || '{}').defaultBranch || ''); } catch { return ''; }
   });
   const [branchTables, setBranchTables] = useState(null);
+  // รูปแบบใบเสร็จ (หลังบ้าน > ใบเสร็จ): โลโก้ ขนาด และรายละเอียดหัวใบ — ใช้ทุกสาขา
+  const [receiptSettings, setReceiptSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('gas_all_data') || '{}').receiptSettings || null; } catch { return null; }
+  });
   // ปริ้นเตอร์จากเซิร์ฟเวอร์ (ทุกสาขา) — ใช้เฉพาะของสาขานี้ ดูเอฟเฟกต์ด้านล่าง
   const [serverPrinters, setServerPrinters] = useState(null);
   // สาขาที่ใช้เลือกผังโต๊ะและลิงก์ QR — ผู้ใช้ไม่ได้อยู่สาขาที่มีในรายการ ให้ถือเป็นสาขาหลัก
@@ -377,6 +395,9 @@ function App() {
     } catch {}
   }, [serverPrinters, tablesBranch]);
 
+  // สาขาของงานพิมพ์ที่ฝากเข้าคิว (มือถือ/แท็บเล็ต) — Print Server ของสาขานี้เป็นคนรับไปพิมพ์
+  React.useEffect(() => { setPrintBranch(tablesBranch); }, [tablesBranch]);
+
   // หัวใบเสร็จของสาขานี้ — แนบไปกับทุกงานพิมพ์
   React.useEffect(() => {
     const b = branches.find(x => String(x.id) === String(tablesBranch));
@@ -384,9 +405,10 @@ function App() {
       name: b.name || b.id, address: b.address || '', phone: b.phone || '',
       taxId: b.taxId || '', posId: b.posId || '', footer: b.receiptFooter || '',
       // อัตรา VAT สำหรับแยกยอดในใบกำกับภาษีอย่างย่อ — ใช้ค่าเดียวกับใบกำกับเต็มรูป (ไม่ได้ตั้ง = 7)
-      vatRate: Number(posSettings?.vat?.rate) > 0 ? Number(posSettings.vat.rate) : 7
+      vatRate: Number(posSettings?.vat?.rate) > 0 ? Number(posSettings.vat.rate) : 7,
+      ...receiptHeaderStyle(receiptSettings)
     } : null);
-  }, [branches, tablesBranch, posSettings]);
+  }, [branches, tablesBranch, posSettings, receiptSettings]);
 
   // ผังโต๊ะของสาขานี้จากเซิร์ฟเวอร์ → เขียนลงที่เดิม (pos_tables_config) ที่หน้าขายอ่านอยู่แล้ว
   // สาขาที่ยังไม่เคยบันทึกผังขึ้นระบบ → ใช้ผังเดิมในเครื่องไปก่อน
@@ -439,6 +461,7 @@ function App() {
   const [checkoutTotal, setCheckoutTotal] = useState(0);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [checkoutDiscount, setCheckoutDiscount] = useState(null);
+  const [checkoutCrm, setCheckoutCrm] = useState(null);
   const [showSalesSummaryModal, setShowSalesSummaryModal] = useState(false);
   const [showTaxInvoicePage, setShowTaxInvoicePage] = useState(false);
   const [salesSummaryMode, setSalesSummaryMode] = useState('daily'); // 'daily' | 'range'
@@ -524,6 +547,7 @@ function App() {
       setBranches(data.branches);
     }
     if (typeof data.defaultBranch === 'string') setDefaultBranch(data.defaultBranch);
+    if ('receiptSettings' in data && changed('receiptSettings', data.receiptSettings)) setReceiptSettings(data.receiptSettings || null);
     if (data.branchTables && typeof data.branchTables === 'object' && changed('branchTables', data.branchTables)) {
       setBranchTables(data.branchTables);
     }
@@ -1064,17 +1088,35 @@ function App() {
   // =============================================
   // NEW: Open checkout from table view
   // =============================================
-  const handleOpenCheckoutFromTable = (items, total, discount = null) => {
+  // crm = { member, couponRef } สมาชิกและการจองคูปองที่ทำไว้แล้วที่หน้าขาย → หน้าชำระเงินไม่ต้องสแกนซ้ำ
+  const handleOpenCheckoutFromTable = (items, total, discount = null, crm = null) => {
     setCheckoutItems(items);
     setCheckoutTotal(total);
     setCheckoutDiscount(discount);
+    setCheckoutCrm(crm);
     setIsCheckoutOpen(true);
   };
 
   // พิมพ์ใบแจ้งยอดให้ลูกค้าตรวจก่อนชำระเงิน (ไม่เปิดลิ้นชักเก็บเงิน)
   const handlePrintPreBill = async (order) => {
-    const res = await printPreBill(order);
+    // QR สแกนจ่ายท้ายใบแจ้งยอด (QR ของสาขานี้ ใส่ยอดสุทธิให้แล้ว) · สร้างไม่ได้ก็พิมพ์ใบแจ้งยอดแบบเดิม แล้วเตือนว่าทำไมไม่มี QR
+    let payQr = null;
+    let qrProblem = '';
+    try { payQr = await makePayQr(checkoutSettings, order.totalAmount, getReceiptHeader()?.paper); } catch (e) { console.warn('pay QR skipped:', e); }
+    if (!payQr && Number(order.totalAmount) > 0) qrProblem = 'สร้างรูป QR ไม่ได้ — เช็กการตั้งค่า QR ที่ หลังบ้าน > ตั้งค่าร้าน (ถ้าใช้รูป QR คงที่ ลองอัปโหลดรูปใหม่)';
+    const res = await printPreBill(payQr ? { ...order, payQr } : order);
     if (res.success) {
+      if (payQr && res.serverVersion && versionBelow(res.serverVersion, '1.7.0')) {
+        qrProblem = `Print Server ยังเป็นเวอร์ชันเก่า (v${res.serverVersion === '0' ? '?' : res.serverVersion}) — รัน update-printer.bat ที่คอมเครื่อง Print Server`;
+      } else if (payQr && /QR/.test(res.warning || '')) {
+        // Print Server ต่อข้อความเตือนหลายเรื่องด้วย ' · ' — เอาเฉพาะเรื่อง QR
+        qrProblem = (res.warning.split(' · ').find(w => /QR/.test(w)) || res.warning).replace(/^ไม่มี QR สแกนจ่าย:\s*/, '');
+      }
+      if (qrProblem) {
+        setSaveAlert({ type: 'warning', msg: `🧾 พิมพ์ใบแจ้งยอดแล้ว แต่ไม่มี QR สแกนจ่าย — ${qrProblem}` });
+        setTimeout(() => setSaveAlert(cur => (cur && cur.type === 'warning' ? null : cur)), 12000);
+        return;
+      }
       setSaveAlert({ type: 'success', msg: '🧾 พิมพ์ใบแจ้งยอดให้ลูกค้าแล้ว' });
       setTimeout(() => setSaveAlert(cur => (cur && cur.type === 'success' ? null : cur)), 4000);
     } else {
@@ -1150,6 +1192,20 @@ function App() {
       clientRef,
       branchId: branchKey,
       rows: rowsToSend,
+      // ระบบสมาชิก: เลขสมาชิกที่สแกน/ค้นตอนปิดบิล + ส่วนลดร้าน (แต้มคิดจากยอดหลังส่วนลด ก่อนค่าบริการ/VAT)
+      memberId: printInfo.member ? printInfo.member.id : undefined,
+      // ส่วนลดเป็นคูปองสมาชิก → ส่งเป็นคูปอง (ระบบสมาชิกตัดคูปองตอนบันทึกบิล) ไม่ใช่ส่วนลดร้าน
+      storeDiscount: printInfo.crmCoupon ? 0 : (Number(printInfo.discountAmount) || 0),
+      // บันทึกส่วนลดของบิล (ชื่อ/ยอด/ประเภท) → หลังบ้าน > รายงาน > ส่วนลด
+      discount: Number(printInfo.discountAmount) > 0
+        ? { name: printInfo.discountName || 'ส่วนลด', amount: Number(printInfo.discountAmount) || 0, kind: printInfo.crmCoupon ? 'coupon' : 'store' }
+        : undefined,
+      couponIds: printInfo.crmCoupon ? printInfo.crmCoupon.ids : undefined,
+      couponRef: printInfo.crmCoupon ? printInfo.crmCoupon.ref : undefined,
+      couponDiscount: printInfo.crmCoupon ? printInfo.crmCoupon.discount : undefined,
+      // Voucher ที่ใช้จ่ายบิลนี้ (ใช้แทนเงิน) → ระบบสมาชิกตัดเป็นใช้แล้วตอนบันทึกบิล
+      vouchers: printInfo.vouchers && printInfo.vouchers.list.length ? printInfo.vouchers.list : undefined,
+      voucherRef: printInfo.vouchers && printInfo.vouchers.list.length ? printInfo.vouchers.ref : undefined,
       payment: {
         orderNumber: newOrderNumber,
         tableNo: String(tableNumber),
@@ -1161,9 +1217,11 @@ function App() {
       }
     };
     let finalNo = '';
+    let crm = null;
     try {
       const json = await postOrderPayload(orderPayload);
       finalNo = (json && json.orderNumber) || newOrderNumber;
+      crm = json && json.crm;
     } catch (error) {
       console.error('Error saving order:', error);
       // เก็บบิลที่บันทึกไม่สำเร็จไว้ในเครื่อง เพื่อไม่ให้ข้อมูลหาย + ให้ retry/ตรวจสอบภายหลังได้
@@ -1190,6 +1248,12 @@ function App() {
       const base = printInfo.receiptOrder
         ? { ...printInfo.receiptOrder, id: receiptNo, orderNumber: receiptNo }
         : { ...newOrder, id: receiptNo, orderNumber: receiptNo };
+      // แต้มที่ได้จากบิลนี้ (ระบบสมาชิกตอบทันเวลา) · ไม่ทัน = แต้มเข้าภายหลังและลูกค้าได้ข้อความแจ้งทาง LINE
+      if (printInfo.member && Array.isArray(base.summary)) {
+        base.summary = [...base.summary, crm && crm.sent
+          ? { label: 'แต้มที่ได้', value: `+${Number(crm.points || 0).toLocaleString()}${crm.balance != null ? ` (คงเหลือ ${Number(crm.balance).toLocaleString()})` : ''}` }
+          : { label: 'แต้ม', value: 'เข้าบัญชีภายหลัง แจ้งทาง LINE' }];
+      }
       if (receiptPrinter) {
         sendPrintJob({ ip: receiptPrinter.ip, printerType: 'receipt', orderData: { ...base, paid: !!finalNo } })
           .then(result => { if (!result.success) console.error('Silent print failed:', result.error); })
@@ -1368,8 +1432,10 @@ function App() {
 
   // ── ลูกค้าแจ้งโอน (หน้าคีออส) → รอพนักงานหน้าขายกดยืนยัน ──
   // ส่งออเดอร์ทั้งก้อนไปเก็บไว้ก่อน บิลจริงออกตอนพนักงานกด "ได้รับเงินแล้ว" (respondKioskPayment)
-  const handleKioskPaymentRequest = async (targetTableNo, cartItems, total, paySessionId, diningLabel) => {
-    const cartForServer = cartItems.map(item => {
+  const handleKioskPaymentRequest = async (targetTableNo, cartItems, total, paySessionId, diningLabel, memberId, coupon, verifyToken) => {
+    // สั่งก่อนจ่ายทีหลัง: หน้าลูกค้าส่งรายการในบิล (สั่งเข้าครัวไปแล้ว) มาจ่ายรวม — พนักงานยืนยันยอดแล้วปิดบิลโต๊ะ
+    const payLater = cartItems.length > 0 && !cartItems[0].food;
+    const cartForServer = payLater ? cartItems : cartItems.map(item => {
       let unitPrice = Number(item.food.price) || 0;
       if (item.allPopups && item.allPopups.length > 0) {
         item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
@@ -1379,19 +1445,30 @@ function App() {
     const payload = {
       action: 'kioskPaymentRequest',
       branchId: branchKey,
+      payLater: payLater || undefined,
       tableNumber: String(targetTableNo || ''),
       dining: diningLabel || '',
       sessionId: String(paySessionId),
       items: cartForServer,
       total: Number(total) || 0,
-      timestamp: getThaiTimeISO()
+      timestamp: getThaiTimeISO(),
+      memberId: memberId || undefined,
+      // คูปองสมาชิกที่ใช้ในตะกร้า (จองไว้แล้ว) — total ด้านบนหักส่วนลดนี้แล้ว
+      couponIds: coupon ? coupon.ids : undefined,
+      couponRef: coupon ? coupon.ref : undefined,
+      couponDiscount: coupon ? coupon.discount : undefined,
+      // ล็อกอินสมาชิก (รหัส 6 หลักในบัตร LINE) — เซิร์ฟเวอร์ใช้ตรวจเมนูเฉพาะสมาชิก
+      verifyToken: verifyToken || undefined
     };
     let lastError = '';
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
         const json = await res.json().catch(() => null);
-        if (json && json.success) return { success: true, status: json.status || 'pending', orderNumber: json.orderNumber || '' };
+        if (json && json.success) return { success: true, status: json.status || 'pending', orderNumber: json.orderNumber || '', ...(typeof json.total === 'number' ? { total: json.total } : {}) };
+        // เมนูเฉพาะสมาชิกแต่ยังไม่ได้ล็อกอิน/หมดเวลา → บอกหน้าลูกค้าทันที ไม่ต้องยิงซ้ำ
+        if (json && json.memberOnly) return { success: false, memberOnly: true, error: json.error };
+        if (json && json.memberQuota) return { success: false, memberQuota: true, error: json.error };
         lastError = (json && json.error) || 'ส่งไม่สำเร็จ';
         if (/Unknown action/i.test(lastError)) break;
       } catch (e) {
@@ -1402,97 +1479,106 @@ function App() {
     return { success: false, error: lastError };
   };
 
+  // ── สั่งก่อน จ่ายทีหลัง (หน้าลูกค้าสั่งเอง) ──
+  // ลูกค้ากด "ยืนยันสั่งอาหาร" → ลงรายการโต๊ะแบบยังไม่จ่าย เหมือนพนักงานสั่งเข้าโต๊ะ (ครัวได้ใบทันที)
+  // sessionId เดิมทุกครั้งที่กดซ้ำ → หลังบ้านไม่ลงรายการซ้อน
+  const handleKioskOrderLater = async (targetTableNo, cartItems, total, sessionId, diningLabel, memberId, verifyToken) => {
+    const items = cartItems.map(item => {
+      let unitPrice = Number(item.food.price) || 0;
+      (item.allPopups || []).forEach(p => { unitPrice += Number(p.price || 0); });
+      return { ...item, food: { ...item.food, price: unitPrice } };
+    });
+    const payload = {
+      // เซิร์ฟเวอร์ลงรายการโต๊ะแบบยังไม่จ่าย + จำว่ายังไม่พิมพ์ใบครัว (หน้าขายจะดึงไปพิมพ์ให้)
+      action: 'kioskOrder',
+      branchId: branchKey,
+      tableNumber: String(targetTableNo || ''),
+      sessionId: String(sessionId),
+      items,
+      dining: diningLabel || '',
+      timestamp: getThaiTimeISO(),
+      recordedBy: 'Self-Order',
+      selfOrder: true,
+      memberId: memberId || undefined,
+      verifyToken: verifyToken || undefined
+    };
+    let lastError = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+        const json = await res.json().catch(() => null);
+        if (json && json.success !== false) { setTimeout(() => fetchOrdersFromSheet(), 1500); return { success: true }; }
+        if (json && (json.memberOnly || json.memberQuota)) return { success: false, ...json };
+        lastError = (json && json.error) || 'ส่งไม่สำเร็จ';
+      } catch (e) {
+        lastError = String(e.message || e);
+      }
+      await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+    }
+    return { success: false, error: lastError };
+  };
+
+  // บิลที่ยังไม่จ่ายของโต๊ะ (ทุกเครื่องในโต๊ะเดียวกัน) → แบ่งเป็นรอบตาม SessionId ให้หน้าลูกค้าแสดง
+  const loadKioskBill = async (tbl) => {
+    try {
+      const qs = `action=getTableOrders&tableNumber=${encodeURIComponent(tbl)}${branchKey ? `&branch=${encodeURIComponent(branchKey)}` : ''}`;
+      const res = await fetch(`${API_URL}?${qs}`);
+      const json = await res.json();
+      if (!json || !json.success || !Array.isArray(json.orders)) return null;
+      const rounds = new Map();
+      json.orders.filter(o => o.Status !== 'paid').forEach(o => {
+        const id = String(o.SessionId || o.Timestamp || '');
+        if (!rounds.has(id)) rounds.set(id, { id, at: new Date(o.Timestamp).getTime() || Date.now(), items: [] });
+        const qty = Number(o.Quantity) || 1;
+        rounds.get(id).items.push({ name: o.ItemName, options: String(o.Options || '').replace(/\s*\|.*$/, ''), qty, amount: (Number(o.ItemPrice) || 0) * qty });
+      });
+      return [...rounds.values()];
+    } catch { return null; }
+  };
+
+  // ── ใบครัวของรอบที่ลูกค้าสั่งผ่าน QR (สั่งก่อนจ่ายทีหลัง) ──
+  // เครื่องพนักงานที่ตั้งเครื่องพิมพ์ไว้ ถามเซิร์ฟเวอร์ทุก 6 วิ — เซิร์ฟเวอร์ให้แต่ละรอบกับเครื่องเดียว จึงไม่พิมพ์ซ้ำ
+  // พิมพ์ไม่สำเร็จ → คืนรอบนั้นให้เครื่องอื่น/รอบถัดไปพิมพ์ใหม่
+  const kioskTicketRef = React.useRef({});
+  kioskTicketRef.current = { allMenu: allMenu.length > 0 ? allMenu : liveMenu, tables: kioskTables, branchKey };
+  const canPrintKitchen = !!currentUser && !isKioskPath && !isLandingPath && getPrinters().length > 0;
+  React.useEffect(() => {
+    if (!canPrintKitchen) return undefined;
+    let busy = false;
+    const tick = async () => {
+      if (busy || (typeof document !== 'undefined' && document.hidden)) return;
+      busy = true;
+      try {
+        const { allMenu: menu, tables, branchKey: b } = kioskTicketRef.current;
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'claimKioskTickets', branchId: b }) });
+        const json = await res.json().catch(() => null);
+        const rounds = json && json.success && Array.isArray(json.rounds) ? json.rounds : [];
+        for (const round of rounds) {
+          const rows = round.items.map(it => ({ ItemName: it.name, Quantity: it.qty, Options: it.options, ItemPrice: it.price }));
+          const order = buildKitchenOrder(rows, round.tableNumber, 'qr-' + round.sessionId, round.timestamp || getThaiTimeISO(), diningForTable(tables, round.tableNumber));
+          const pr = await printKitchenOrder(order, menu).catch(err => ({ success: false, error: err.message }));
+          if (pr && pr.success) {
+            setSaveAlert({ type: 'success', msg: `🔔 โต๊ะ ${round.tableNumber} สั่งอาหารผ่าน QR · ส่งใบครัวแล้ว` });
+          } else {
+            setSaveAlert({ type: 'error', msg: `⚠️ โต๊ะ ${round.tableNumber} สั่งผ่าน QR แต่พิมพ์ใบครัวไม่สำเร็จ: ${(pr && pr.error) || 'ไม่ทราบสาเหตุ'} — จะลองใหม่อัตโนมัติ` });
+            fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'releaseKioskTickets', branchId: b, sessionIds: [round.sessionId] }) }).catch(() => {});
+          }
+        }
+        if (rounds.length) refreshTableOrders();
+      } catch { /* เน็ตสะดุด — รอบหน้าค่อยถามใหม่ */ }
+      busy = false;
+    };
+    tick();
+    const timer = setInterval(tick, 6000);
+    return () => clearInterval(timer);
+  }, [canPrintKitchen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const checkKioskPayment = async (paySessionId) => {
     try {
       const res = await fetch(`${API_URL}?action=getKioskPayment&id=${encodeURIComponent(paySessionId)}`);
       const json = await res.json();
       return json && json.success ? json : null;
     } catch { return null; }
-  };
-
-  // ออเดอร์จากคีออส — ลูกค้าโอนเงินและสลิปผ่านการตรวจมาแล้ว จึงต้องบันทึกเป็น "บิลที่จ่ายแล้ว"
-  // ไม่ใช่แค่รายการรายโต๊ะ ไม่งั้นยอดไม่เข้ารายงาน/สรุปกะ และพนักงานอาจเก็บเงินซ้ำตอนปิดโต๊ะ
-  // ฝั่งเซิร์ฟเวอร์ (action kioskPaidOrder) ออกเลขบิล + ลง Orders/PaymentSummary/TableOrders + ตัดสต็อก
-  // ให้ครบในคำขอเดียวโดยมีล็อกกันหลายโต๊ะกดจ่ายพร้อมกัน
-  const handleKioskSendOrder = async (targetTableNo, cartItems, total, paymentMethod, paySessionId) => {
-    // sessionId มาจากหน้าคีออส และคงค่าเดิมทุกครั้งที่กดส่งซ้ำ → หลังบ้านใช้กันบิลซ้ำ
-    const sessionId = String(paySessionId || (String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8)));
-    const timestamp = getThaiTimeISO();
-
-    const cartForServer = cartItems.map(item => {
-      let unitPrice = Number(item.food.price) || 0;
-      if (item.allPopups && item.allPopups.length > 0) {
-        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
-      }
-      return {
-        ...item,
-        food: { ...item.food, price: unitPrice }
-      };
-    });
-
-    const payload = {
-      action: 'kioskPaidOrder',
-      branchId: branchKey,
-      tableNumber: String(targetTableNo),
-      sessionId,
-      items: cartForServer,
-      total: Number(total) || 0,
-      paymentMethod: paymentMethod || 'เงินโอน (QR)',
-      timestamp
-    };
-
-    // ลูกค้าจ่ายเงินไปแล้ว ห้ามเงียบหาย — ยิงซ้ำได้ 3 ครั้ง (เน็ตมือถือหลุดง่าย)
-    // ยิงซ้ำแล้วบิลไม่ซ้ำ เพราะฝั่งเซิร์ฟเวอร์เช็ก sessionId เดิมแล้วคืนเลขบิลเดิมกลับมา
-    let lastError = '';
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-        });
-        const json = await res.json().catch(() => null);
-        if (json && json.success) {
-          setTimeout(() => fetchOrdersFromSheet(), 1500);
-          return { success: true, orderNumber: json.orderNumber || '' };
-        }
-        lastError = (json && json.error) || 'บันทึกไม่สำเร็จ';
-      } catch (e) {
-        lastError = String(e.message || e);
-      }
-      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
-    }
-    // แบ็กเอนด์ยังเป็นสคริปต์เวอร์ชันเก่า (ยังไม่ได้ deploy ตัวใหม่) — ห้ามทิ้งออเดอร์ที่จ่ายเงินมาแล้ว
-    // ถอยไปใช้วิธีเดิมคือส่งเข้ารายการโต๊ะ พร้อมทำเครื่องหมายว่าชำระแล้วไว้ในรายการให้พนักงานเห็น
-    if (lastError.indexOf('Unknown action') !== -1) {
-      try {
-        const marked = cartForServer.map(item => ({
-          ...item,
-          note: `${item.note ? item.note + ' ' : ''}💳 ชำระผ่าน QR แล้ว (${paymentMethod || ''})`
-        }));
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'addTableOrder',
-            branchId: branchKey,
-            tableNumber: String(targetTableNo),
-            sessionId,
-            items: marked,
-            timestamp,
-            recordedBy: 'Self-Order'
-          })
-        });
-        setTimeout(() => fetchOrdersFromSheet(), 1500);
-        return { success: true, orderNumber: '', needStaff: true };
-      } catch (e) {
-        lastError = String(e.message || e);
-      }
-    }
-
-    console.error('Error saving kiosk order:', lastError);
-    return { success: false, error: lastError };
   };
 
   // มีหลายสาขาแต่เครื่องนี้ยังไม่ได้เลือกสาขา → กลับไปหน้าแรกให้เลือกก่อน
@@ -1539,8 +1625,8 @@ function App() {
           onClick={() => setSaveAlert(null)}
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, zIndex: 5000,
-            background: saveAlert.type === 'success' ? '#16a34a' : '#dc2626',
-            color: 'white', padding: '0.85rem 1.25rem',
+            background: saveAlert.type === 'success' ? '#16a34a' : saveAlert.type === 'warning' ? '#c8102e' : '#dc2626',
+            color: saveAlert.type === 'warning' ? '#1f2937' : 'white', padding: '0.85rem 1.25rem',
             fontSize: '0.9rem', fontWeight: 700, textAlign: 'center', cursor: 'pointer',
             boxShadow: '0 4px 20px rgba(0,0,0,0.4)', lineHeight: 1.4
           }}
@@ -1551,6 +1637,8 @@ function App() {
           </div>
         </div>
       )}
+      {/* สถานะทุกงานพิมพ์ (พิมพ์เสร็จ / พิมพ์ไม่ออกติดขั้นไหน) — ไม่ขึ้นบนหน้าลูกค้าสั่งเอง */}
+      {!isKioskPath && <PrintStatusToast />}
       {/* key = เส้นทางปัจจุบัน — เปลี่ยนหน้าแล้วกล่องดักพังรีเซ็ตตัวเอง ไม่ค้างจอ error ข้ามหน้า */}
       <ChunkErrorBoundary lang={lang} key={location.pathname}>
       <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>{lang === 'th' ? 'กำลังโหลด...' : 'Loading...'}</div>}>
@@ -1568,8 +1656,8 @@ function App() {
             }}
           />
         } />
-        <Route path="/kiosk" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskSendOrder} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} />} />
-        <Route path="/self-order" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskSendOrder} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} />} />
+        <Route path="/kiosk" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskOrderLater} onLoadBill={loadKioskBill} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} branchId={branchKey} />} />
+        <Route path="/self-order" element={<CustomerKiosk liveMenu={liveMenu} categories={categories} settings={checkoutSettings} onSendOrder={handleKioskOrderLater} onLoadBill={loadKioskBill} onRequestPayment={handleKioskPaymentRequest} onCheckPayment={checkKioskPayment} lang={lang} tables={kioskTables} branchId={branchKey} />} />
 
         <Route path="/table-orders" element={
           !tableNumber ? <Navigate to="/index" replace /> :
@@ -1600,6 +1688,7 @@ function App() {
         <Route path="/index" element={
           <PosSalesScreen
               lang={lang}
+              branchId={branchKey}
               setLang={setLang}
               tableNumber={tableNumber}
               onSelectTable={setTableNumber}
@@ -1720,7 +1809,10 @@ function App() {
           <Route path="branch-menu" element={isAdmin ? <ManageBranchMenu branchId={tablesBranch} branches={branches} /> : <Navigate to="/admin" replace />} />
           <Route path="promotions" element={<ManagePromotions />} />
           <Route path="printers" element={isAdmin ? <ManagePrinters branchId={tablesBranch} branches={branches} /> : <Navigate to="/admin" replace />} />
+          <Route path="member-menu" element={isAdmin ? <ManageMemberMenu /> : <Navigate to="/admin" replace />} />
+          <Route path="receipt" element={isAdmin ? <ManageReceipt receiptSettings={receiptSettings} onSaved={setReceiptSettings} branches={branches} branchId={tablesBranch} /> : <Navigate to="/admin" replace />} />
           <Route path="settings" element={isAdmin ? <ManageSettings users={users} /> : <Navigate to="/admin" replace />} />
+          <Route path="banner" element={isAdmin ? <ManageBanner categories={allCategories.length > 0 ? allCategories : categories} /> : <Navigate to="/admin" replace />} />
           <Route path="bom" element={isAdmin ? <ManageBOM /> : <Navigate to="/admin" replace />} />
           <Route path="stock" element={<ManageStock branchId={tablesBranch} branches={branches} canPickBranch={isAdmin} />} />
           <Route path="reports" element={(isAdmin || isCashier) ? <Reports allMenu={allMenu} isAdmin={isAdmin} branch={branch} users={users} userName={currentUser?.username || ''} /> : <Navigate to="/admin" replace />} />
@@ -1786,7 +1878,9 @@ function App() {
         </Suspense>
       )}
 
+      {/* หน้าชำระเงินอยู่นอกกรอบกันจอขาวของหน้าหลัก ต้องมีกรอบของตัวเอง (ไฟล์เวอร์ชันเก่าหายหลังอัปเดต → รีโหลดให้เอง) */}
       {isCheckoutOpen && (
+        <ChunkErrorBoundary lang={lang} overlay>
         <Suspense fallback={null}>
           <CheckoutModal
             tableOrderItems={checkoutItems}
@@ -1796,14 +1890,17 @@ function App() {
             onClose={() => setIsCheckoutOpen(false)}
             onComplete={handleCheckoutComplete}
             settings={checkoutSettings}
-            discounts={posDiscounts}
-            categories={allCategories.length > 0 ? allCategories : categories}
             initialDiscount={checkoutDiscount}
+            initialMember={checkoutCrm ? checkoutCrm.member : null}
+            initialCouponRef={checkoutCrm ? checkoutCrm.couponRef : null}
+            branchId={branchKey}
             users={users}
             currentUser={currentUser}
             tableNo={tableNumber}
+            menu={allMenu.length > 0 ? allMenu : liveMenu}
           />
         </Suspense>
+        </ChunkErrorBoundary>
       )}
 
       {/* แจ้งเตือนคำขออนุมัติ QR — เฉพาะแอดมิน/แคชเชียร์ */}

@@ -38,7 +38,7 @@ const OrderTimer = ({ timestamp }) => {
   const isLate = mins >= 10;
 
   return (
-    <div className="order-timer" style={{ color: isLate ? 'var(--spice-4)' : 'var(--spice-2)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem', background: isLate ? 'rgba(239, 68, 68, 0.1)' : 'rgba(234, 179, 8, 0.1)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: `1px solid ${isLate ? 'rgba(239, 68, 68, 0.3)' : 'rgba(234, 179, 8, 0.3)'}` }}>
+    <div className="order-timer" style={{ color: isLate ? 'var(--spice-4)' : 'var(--spice-2)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem', background: isLate ? 'rgba(239, 68, 68, 0.1)' : 'rgba(200, 16, 46, 0.1)', padding: '0.4rem 0.8rem', borderRadius: '20px', border: `1px solid ${isLate ? 'rgba(239, 68, 68, 0.3)' : 'rgba(200, 16, 46, 0.3)'}` }}>
       <Clock size={16} /> <span>{timeString}</span>
     </div>
   );
@@ -242,7 +242,7 @@ const KitchenMonitor = ({ orders, onUpdateOrderStatus, onNewOrder, allMenu = [] 
         <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem', border: '1px solid rgba(255,255,255,0.05)', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
             <h3 style={{ margin: 0, color: 'var(--accent)', fontSize: '1.25rem' }}>สรุปยอดค้างทำทั้งหมด (รอมอนิเตอร์)</h3>
-            <span style={{ background: 'rgba(249,115,22,0.2)', color: 'var(--accent)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold' }}>
+            <span style={{ background: 'rgba(200, 16, 46, 0.2)', color: 'var(--accent)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold' }}>
               รวม {totalMainDishes} จานหลัก
             </span>
           </div>

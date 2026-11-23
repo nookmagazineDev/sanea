@@ -103,7 +103,7 @@ const LoginScreen = ({ users, onLogin, lang, onRetry, branches = [], deviceBranc
                 </div>
                 <button
                   onClick={handleRetry}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--accent)', color: 'black', border: 'none', borderRadius: 12, padding: '0.75rem 1.5rem', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--accent)', color: '#ffffff', border: 'none', borderRadius: 12, padding: '0.75rem 1.5rem', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', fontFamily: 'inherit' }}
                 >
                   <RefreshCw size={17} /> ลองเชื่อมต่อใหม่
                 </button>

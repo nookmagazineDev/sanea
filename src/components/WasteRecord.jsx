@@ -6,9 +6,9 @@ const WASTE_UNITS = ['จาน', 'แก้ว', 'ขวด', 'ชิ้น', '
 
 // หน้าเดียวใช้ 3 แบบ: บันทึกการทิ้ง (waste) / การเตรียม (prep) / การนับสต็อก (count) — เลือกได้ทั้งเมนูและวัตถุดิบ
 const MODES = {
-  waste: { color: '#dc2626', soft: 'rgba(239,68,68,', text: '#fca5a5', title: 'บันทึกการทิ้ง (Waste)', titleEn: 'Waste Record', verb: 'ทิ้ง', action: 'saveWasteRecord', newBtn: 'ทิ้งใหม่', notePh: 'เช่น หมดอายุ, ทำตก, ลูกค้าคืน' },
-  prep:  { color: '#0891b2', soft: 'rgba(8,145,178,', text: '#67e8f9', title: 'บันทึกการเตรียม (Prep)', titleEn: 'Prep Record', verb: 'เตรียม', action: 'savePrepRecord', newBtn: 'เตรียมใหม่', notePh: 'เช่น เตรียมรอบเช้า, ต้มน้ำซุป, หั่นไก่' },
-  count: { color: '#d97706', soft: 'rgba(217,119,6,', text: '#fcd34d', title: 'บันทึกการนับสต็อก (Stock count)', titleEn: 'Stock Count', verb: 'นับ', action: 'saveStockCount', newBtn: 'นับใหม่', notePh: 'เช่น นับปิดร้าน, นับตู้เย็น 2' }
+  waste: { color: '#c8102e', soft: 'rgba(200,16,46,', text: '#ff8a99', title: 'บันทึกการทิ้ง (Waste)', titleEn: 'Waste Record', verb: 'ทิ้ง', action: 'saveWasteRecord', newBtn: 'ทิ้งใหม่', notePh: 'เช่น หมดอายุ, ทำตก, ลูกค้าคืน' },
+  prep:  { color: '#c8102e', soft: 'rgba(200,16,46,', text: '#ff8a99', title: 'บันทึกการเตรียม (Prep)', titleEn: 'Prep Record', verb: 'เตรียม', action: 'savePrepRecord', newBtn: 'เตรียมใหม่', notePh: 'เช่น เตรียมรอบเช้า, ต้มน้ำซุป, หั่นไก่' },
+  count: { color: '#c8102e', soft: 'rgba(200,16,46,', text: '#ff8a99', title: 'บันทึกการนับสต็อก (Stock count)', titleEn: 'Stock Count', verb: 'นับ', action: 'saveStockCount', newBtn: 'นับใหม่', notePh: 'เช่น นับปิดร้าน, นับตู้เย็น 2' }
 };
 
 // เวลาประเทศไทย (ISO + offset) — เก็บเวลาที่ลงให้ตรงเขตเวลาไทย
@@ -189,13 +189,13 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
 
   const cardStyle  = { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '1.25rem' };
   const inputStyle = { width: '100%', padding: '0.7rem 0.9rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 10, color: 'white', fontSize: '0.95rem', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' };
-  const labelStyle = { display: 'block', color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginBottom: '0.4rem' };
+  const labelStyle = { display: 'block', color: 'rgba(255,255,255,0.72)', fontSize: '0.8rem', marginBottom: '0.4rem' };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg, #0f0f0f)', color: 'white', fontFamily: 'inherit' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
           <ChevronLeft size={20} /> {lang === 'th' ? 'กลับ' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1 }}>
@@ -217,7 +217,7 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
         {/* Branch selector (จดจำต่อเครื่อง) */}
         <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
           <Building2 size={18} color={M.color} />
-          <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', fontWeight: 600 }}>{lang === 'th' ? 'สาขา' : 'Branch'}</span>
+          <span style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.85rem', fontWeight: 600 }}>{lang === 'th' ? 'สาขา' : 'Branch'}</span>
           <input
             style={{ ...inputStyle, flex: 1, minWidth: 160, maxWidth: 320 }}
             placeholder={lang === 'th' ? 'ชื่อสาขาของเครื่องนี้' : 'Branch name for this device'}
@@ -225,23 +225,23 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
             onChange={e => setBranch(e.target.value)}
             onBlur={() => { if (branch.trim()) localStorage.setItem('waste_branch', branch.trim()); }}
           />
-          <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.4)', fontSize: '0.82rem' }}>
+          <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.72)', fontSize: '0.82rem' }}>
             {lang === 'th' ? `รวม${M.verb}ทั้งหมด` : 'Total'}: <strong style={{ color: M.color }}>{totalQty}</strong>
           </span>
         </div>
 
         {/* History */}
         <div style={{ ...cardStyle, padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '0.85rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: '0.9rem' }}>
+          <div style={{ padding: '0.85rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.88)', fontWeight: 700, fontSize: '0.9rem' }}>
             <Clock size={15} /> {lang === 'th' ? `ประวัติการ${M.verb}` : 'History'} ({records.length})
           </div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.72)' }}>
               <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.75rem' }} />
               <p>กำลังโหลด...</p>
             </div>
           ) : history.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.72)' }}>
               <Icon size={44} style={{ opacity: 0.2, marginBottom: '0.75rem' }} />
               <p style={{ margin: 0 }}>{lang === 'th' ? `ยังไม่มีรายการ${M.verb}` : 'No records yet'}</p>
             </div>
@@ -251,24 +251,24 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
                     {['วันเวลา', 'สาขา', 'รายการ', 'ประเภท', 'หมวด', 'จำนวน', 'หมายเหตุ', 'พนักงาน'].map(h => (
-                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'rgba(255,255,255,0.5)', fontWeight: 600, fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>{h}</th>
+                      <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', color: 'rgba(255,255,255,0.72)', fontWeight: 600, fontSize: '0.78rem', borderBottom: '1px solid rgba(255,255,255,0.07)', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {history.map((r, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{fmtDate(r.timestamp)}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{fmtDate(r.timestamp)}</td>
                       <td style={{ padding: '0.7rem 1rem', whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.76rem', fontWeight: 700, background: 'rgba(240, 122, 138, 0.12)', color: '#f07a8a', border: '1px solid rgba(240, 122, 138, 0.3)' }}>
                           <Building2 size={11} /> {r.branch || '—'}
                         </span>
                       </td>
                       <td style={{ padding: '0.7rem 1rem', fontWeight: 600, color: M.text }}>{r.itemName}</td>
-                      <td style={{ padding: '0.7rem 1rem', fontSize: '0.78rem', whiteSpace: 'nowrap', color: r.itemType === 'ingredient' ? '#fbbf24' : 'rgba(255,255,255,0.6)' }}>{r.itemType === 'ingredient' ? '🥬 วัตถุดิบ' : '🍽️ เมนู'}</td>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>{r.category || '—'}</td>
+                      <td style={{ padding: '0.7rem 1rem', fontSize: '0.78rem', whiteSpace: 'nowrap', color: r.itemType === 'ingredient' ? '#e0455c' : 'rgba(255,255,255,0.6)' }}>{r.itemType === 'ingredient' ? '🥬 วัตถุดิบ' : '🍽️ เมนู'}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.8rem' }}>{r.category || '—'}</td>
                       <td style={{ padding: '0.7rem 1rem', fontWeight: 700, textAlign: 'center', color: M.color, whiteSpace: 'nowrap' }}>{r.qty} {r.unit || ''}</td>
-                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem' }}>{r.note || '—'}</td>
+                      <td style={{ padding: '0.7rem 1rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.82rem' }}>{r.note || '—'}</td>
                       <td style={{ padding: '0.7rem 1rem', color: '#22c55e', fontWeight: 600, fontSize: '0.82rem' }}>{r.staff || '—'}</td>
                     </tr>
                   ))}
@@ -287,7 +287,7 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
               <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
                 <Icon size={20} color={M.color} /> {lang === 'th' ? `บันทึกการ${M.verb}` : 'New record'}
               </h2>
-              <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><X size={22} /></button>
+              <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer' }}><X size={22} /></button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -341,12 +341,12 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
                   </select>
                 )}
                 {form.itemType === 'menu' && itemGroups.length === 0 && (
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
                     {lang === 'th' ? 'ยังไม่มีเมนูให้เลือก' : 'No menu items available'}
                   </p>
                 )}
                 {form.itemType === 'ingredient' && ingredients !== null && ingredients.length === 0 && (
-                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
+                  <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '0.74rem', margin: '0.35rem 0 0' }}>
                     {lang === 'th' ? 'ยังไม่มีวัตถุดิบ — เพิ่มได้ที่ หลังบ้าน > สต็อก (หรือ API ยังไม่ได้อัปเดต)' : 'No ingredients yet'}
                   </p>
                 )}
@@ -367,7 +367,7 @@ const WasteRecord = ({ currentUser, lang = 'th', branch: loginBranch = '', onBac
                 <input style={inputStyle} placeholder={lang === 'th' ? M.notePh : 'Note'} value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '0.6rem 0.9rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.45)' }}>
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8, padding: '0.6rem 0.9rem', fontSize: '0.82rem', color: 'rgba(255,255,255,0.72)' }}>
                 {lang === 'th' ? 'พนักงาน' : 'Staff'}: <strong style={{ color: '#22c55e' }}>{currentUser?.username || 'ไม่ระบุ'}</strong>
                 <span style={{ marginLeft: 12 }}>⏰ {fmtDate(getThaiTimeISO())}</span>
               </div>

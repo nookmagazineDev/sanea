@@ -93,7 +93,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
+          <div className="stat-icon" style={{ background: 'rgba(240, 122, 138, 0.1)', color: '#f07a8a' }}>
             <ShoppingBag size={28} />
           </div>
           <div className="stat-details">
@@ -103,7 +103,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(249, 115, 22, 0.1)', color: '#f97316' }}>
+          <div className="stat-icon" style={{ background: 'rgba(200, 16, 46, 0.1)', color: '#c8102e' }}>
             <Clock size={28} />
           </div>
           <div className="stat-details">
@@ -113,7 +113,7 @@ const Dashboard = () => {
         </div>
 
         <div className="stat-card">
-          <div className="stat-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
+          <div className="stat-icon" style={{ background: 'rgba(200, 16, 46, 0.1)', color: '#e0455c' }}>
             <TrendingUp size={28} />
           </div>
           <div className="stat-details">
@@ -147,8 +147,8 @@ const Dashboard = () => {
                          padding: '0.25rem 0.5rem', 
                          borderRadius: '4px', 
                          fontSize: '0.85rem',
-                         background: order.status === 'Success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(249, 115, 22, 0.2)',
-                         color: order.status === 'Success' ? '#22c55e' : '#f97316'
+                         background: order.status === 'Success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(200, 16, 46, 0.2)',
+                         color: order.status === 'Success' ? '#22c55e' : '#c8102e'
                        }}>
                          {order.status || 'Pending'}
                        </span>

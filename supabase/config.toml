@@ -1,0 +1,7 @@
+# Supabase CLI — ใช้ตอน deploy ฟังก์ชัน API ด้วยคำสั่ง: npx supabase functions deploy pos --project-ref gdcdbzwhucqkxrjlpege
+project_id = "gdcdbzwhucqkxrjlpege"
+
+[functions.pos]
+# ฟังก์ชันตรวจสิทธิ์เองด้วย token ล็อกอินพนักงาน — หน้าลูกค้า/Print Server เรียกได้โดยไม่ต้องมี JWT ของ Supabase
+verify_jwt = false
+entrypoint = "./functions/pos/index.js"

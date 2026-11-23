@@ -5,7 +5,7 @@ import { emptyPopupFields, extractPopupConfig, flattenPopupConfig, hasOwnPopupSt
 import { API_URL, nextItemId } from '../../utils/api';
 
 // ปุ่มเลื่อนลำดับเมนูขึ้น/ลง
-const ARROW_BTN = { padding: '0.15rem 0.4rem', lineHeight: 1, borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: '0.72rem' };
+const ARROW_BTN = { padding: '0.15rem 0.4rem', lineHeight: 1, borderRadius: 6, border: '1px solid #e4e4e4', background: '#fff', cursor: 'pointer', fontSize: '0.72rem' };
 
 const ManageMenu = () => {
   const { lang } = useOutletContext();
@@ -15,7 +15,7 @@ const ManageMenu = () => {
   const [branchList, setBranchList] = useState([]);
 
   // ตารางเมนูเคยโชว์รหัสหมวดดิบ ๆ ซึ่งอ่านรู้เรื่องตอนรหัสเป็นคำอย่าง 'food'
-  // พอรหัสเป็น HL##### ต้องแปลงเป็นชื่อหมวดก่อนแสดง
+  // พอรหัสเป็น SN##### ต้องแปลงเป็นชื่อหมวดก่อนแสดง
   const catLabel = (slug) => categories.find(c => c.slug === slug)?.name || slug || '—';
   const [printers, setPrinters] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -312,7 +312,7 @@ const ManageMenu = () => {
     reader.readAsDataURL(file);
   });
 
-  // อัปโหลดรูปเมนูไปที่ ImgBB แล้วเก็บ "ลิงก์" ที่ได้ลงคอลัมน์ image ของชีต Menu
+  // อัปโหลดรูปเมนูไปที่ ImgBB (ผ่านเครื่อง API) แล้วเก็บ "ลิงก์" ที่ได้ลงคอลัมน์ image ของชีต Menu
   // → หน้าขาย/หน้าลูกค้าสั่งเอง ดึงลิงก์นี้ไปแสดงเอง
   //
   // ทำไมไม่ใช้ Google Drive: ลองแล้วติด "Access denied: DriveApp" ที่ฝั่ง Apps Script
@@ -329,21 +329,19 @@ const ManageMenu = () => {
       const base64 = String(dataUrl).split(',')[1];
       if (!base64) throw new Error('อ่านไฟล์รูปไม่ได้');
 
-      const IMGBB_API_KEY = 'c46b3eebbda2ef57c71cb885cb305fe5';
-      const formData = new FormData();
-      formData.append('image', base64); // ImgBB รับ base64 ตรง ๆ ได้ ไม่ต้องแนบเป็นไฟล์
-      formData.append('name', (editingItem?.name || 'menu').toString().slice(0, 60));
-
-      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: 'POST',
-        body: formData
+      // ส่งรูปให้เครื่อง API อัปไป ImgBB (คีย์ ImgBB อยู่ที่ .env ของเครื่อง API ไม่อยู่ในหน้าเว็บ)
+      const res = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'uploadMenuImageHost', base64, name: (editingItem?.name || 'menu').toString().slice(0, 60) })
       });
       const data = await res.json().catch(() => null);
 
-      if (data && data.success && data.data && data.data.display_url) {
-        setEditingItem(prev => ({ ...prev, image: data.data.display_url }));
+      if (data && data.success && data.url) {
+        setEditingItem(prev => ({ ...prev, image: data.url }));
       } else {
-        throw new Error((data && data.error && data.error.message) || 'ImgBB ไม่ตอบลิงก์รูปกลับมา');
+        throw new Error(data && /Unknown action/i.test(data.error || '')
+          ? 'API ยังเป็นรุ่นเก่า — รัน update-api.bat ก่อน'
+          : (data && data.error) || 'อัปโหลดรูปไม่สำเร็จ');
       }
     } catch (err) {
       console.error('Image upload error:', err);
@@ -477,7 +475,7 @@ const ManageMenu = () => {
                     </td>
                     <td>
                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                         <span style={{ background: 'rgba(249,115,22,0.18)', border: '1px solid rgba(249,115,22,0.35)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem' }}>
+                         <span style={{ background: 'rgba(200, 16, 46, 0.18)', border: '1px solid rgba(200, 16, 46, 0.35)', padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.8rem' }}>
                            {catLabel(item.category)}
                          </span>
                          {Array.isArray(item.categories) && item.categories.map(slug => (
@@ -510,8 +508,13 @@ const ManageMenu = () => {
                       }}>
                         {item.isActive !== false ? (lang === 'th' ? 'เปิด' : 'Active') : (lang === 'th' ? 'ซ่อน' : 'Hidden')}
                       </span>
+                      {item.memberOnly === true && (
+                        <span style={{ marginLeft: 4, padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 700, background: '#fbe0e4', color: '#7a0a1c' }}>
+                          👑 {lang === 'th' ? 'สมาชิก' : 'Members'}
+                        </span>
+                      )}
                       {Array.isArray(item.branches) && item.branches.length > 0 && (
-                        <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#2563eb', fontWeight: 600 }}>
+                        <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#141414', fontWeight: 600 }}>
                           🏠 {item.branches.map(id => (branchList.find(b => String(b.id) === String(id)) || {}).name || id).join(', ')}
                         </div>
                       )}
@@ -559,7 +562,7 @@ const ManageMenu = () => {
             <Save size={16} /> {savingOrder ? (lang === 'th' ? 'กำลังบันทึก...' : 'Saving...') : (lang === 'th' ? 'บันทึกลำดับการแสดง' : 'Save order')}
           </button>
           {orderMsg && <span style={{ fontSize: '0.85rem', color: orderMsg.startsWith('✅') ? '#16a34a' : '#dc2626' }}>{orderMsg}</span>}
-          {orderDirty && !orderMsg && <span style={{ fontSize: '0.82rem', color: '#b45309' }}>{lang === 'th' ? 'มีการเปลี่ยนลำดับ ยังไม่ได้บันทึก' : 'Unsaved order changes'}</span>}
+          {orderDirty && !orderMsg && <span style={{ fontSize: '0.82rem', color: '#8e0b20' }}>{lang === 'th' ? 'มีการเปลี่ยนลำดับ ยังไม่ได้บันทึก' : 'Unsaved order changes'}</span>}
         </div>
         {searchTerm.trim() && (
           <p style={{ margin: '-0.5rem 0 0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
@@ -689,7 +692,7 @@ const ManageMenu = () => {
                         onClick={() => removePriceRow(idx)}
                         disabled={(editingItem.prices || []).length <= 1}
                         title={lang === 'th' ? 'ลบราคานี้' : 'Remove'}
-                        style={{ background: 'none', border: 'none', color: (editingItem.prices || []).length <= 1 ? '#cbd5e1' : '#ef4444', cursor: (editingItem.prices || []).length <= 1 ? 'not-allowed' : 'pointer', padding: '0.3rem', display: 'flex' }}
+                        style={{ background: 'none', border: 'none', color: (editingItem.prices || []).length <= 1 ? '#d0d0d0' : '#ef4444', cursor: (editingItem.prices || []).length <= 1 ? 'not-allowed' : 'pointer', padding: '0.3rem', display: 'flex' }}
                       >
                         <Trash2 size={16} />
                       </button>
@@ -782,7 +785,7 @@ const ManageMenu = () => {
                                 style={{
                                   display: 'inline-flex', alignItems: 'center', gap: '0.45rem',
                                   padding: '0.35rem 0.5rem 0.35rem 0.7rem', borderRadius: '999px',
-                                  background: 'rgba(234,179,8,0.18)', border: '1.5px solid var(--accent)',
+                                  background: 'rgba(200, 16, 46, 0.18)', border: '1.5px solid var(--accent)',
                                   fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-main)'
                                 }}
                               >
@@ -848,6 +851,25 @@ const ManageMenu = () => {
                 </label>
               </div>
 
+              {/* เมนูเฉพาะสมาชิก: ลูกค้าสั่งเองต้องล็อกอินสมาชิก · พนักงานต้องยิงบัตรสมาชิกก่อน */}
+              <div className="admin-form-group" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', border: '1.5px solid #c8102e', background: '#fdf2f4', borderRadius: '10px', padding: '0.6rem 0.75rem' }}>
+                <input
+                  type="checkbox"
+                  id="menu-member-only"
+                  checked={editingItem.memberOnly === true}
+                  onChange={e => setEditingItem({ ...editingItem, memberOnly: e.target.checked })}
+                  style={{ width: 'auto', marginBottom: 0, marginTop: '0.2rem' }}
+                />
+                <label htmlFor="menu-member-only" style={{ marginBottom: 0, cursor: 'pointer' }}>
+                  <b>👑 {lang === 'th' ? 'เฉพาะสมาชิก' : 'Members only'}</b>
+                  <span style={{ display: 'block', fontSize: '0.8rem', color: '#7a0a1c', fontWeight: 500, marginTop: '0.15rem' }}>
+                    {lang === 'th'
+                      ? 'หน้าลูกค้าสั่งเอง: แสดงป้าย "เฉพาะสมาชิก" ลูกค้าต้องล็อกอินสมาชิก (ยืนยันด้วยรหัสในบัตร LINE) ก่อนถึงสั่งได้ · หน้าขายพนักงาน: ต้องยิงบัตรสมาชิกก่อน'
+                      : 'Self-order: customer must log in as a member first · Staff POS: scan the member card first'}
+                  </span>
+                </label>
+              </div>
+
               {/* สาขาที่ขายเมนูนี้ */}
               {branchList.length > 1 && (() => {
                 const chosen = Array.isArray(editingItem.branches) ? editingItem.branches.map(String) : [];
@@ -862,7 +884,7 @@ const ManageMenu = () => {
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <button type="button" onClick={() => setEditingItem({ ...editingItem, branches: [] })}
                         style={{ padding: '0.4rem 0.8rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: allBranches ? 700 : 500,
-                          border: `1.5px solid ${allBranches ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: allBranches ? 'rgba(234,179,8,0.15)' : '#fff', color: 'var(--text-main)' }}>
+                          border: `1.5px solid ${allBranches ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: allBranches ? 'rgba(200, 16, 46, 0.15)' : '#fff', color: 'var(--text-main)' }}>
                         {lang === 'th' ? 'ทุกสาขา' : 'All branches'}
                       </button>
                       {branchList.map(b => {
@@ -870,7 +892,7 @@ const ManageMenu = () => {
                         return (
                           <button type="button" key={b.id} onClick={() => toggle(String(b.id))}
                             style={{ padding: '0.4rem 0.8rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: on ? 700 : 500,
-                              border: `1.5px solid ${on ? '#2563eb' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(37,99,235,0.1)' : '#fff', color: 'var(--text-main)' }}>
+                              border: `1.5px solid ${on ? '#141414' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(20, 20, 20, 0.1)' : '#fff', color: 'var(--text-main)' }}>
                             {on ? '✓ ' : ''}{b.name || b.id}
                           </button>
                         );
@@ -923,8 +945,12 @@ const ManageMenu = () => {
                     const updateCount = (newCount) => {
                       let parsed = parseInt(newCount) || 0;
                       if (parsed < 0) parsed = 0;
-                      const others = (editingItem.bundledItems || []).map(String).filter(bId => bId !== String(m.id));
-                      for(let i=0; i<parsed; i++) others.push(String(m.id));
+                      // คงลำดับเดิมของเมนูนี้ไว้ (ถ้ามีอยู่แล้ว) ไม่ย้ายไปท้ายสุดตอนแก้จำนวน
+                      const cur = (editingItem.bundledItems || []).map(String);
+                      const firstIdx = cur.indexOf(String(m.id));
+                      const others = cur.filter(bId => bId !== String(m.id));
+                      const insertAt = firstIdx === -1 ? others.length : cur.slice(0, firstIdx).filter(bId => bId !== String(m.id)).length;
+                      others.splice(insertAt, 0, ...Array(parsed).fill(String(m.id)));
                       setEditingItem({ ...editingItem, bundledItems: others });
                     };
                     
@@ -945,6 +971,47 @@ const ManageMenu = () => {
                     </div>
                   )})}
                 </div>
+
+                {/* ลำดับการแสดงของเมนูแถม — ขึ้นตะกร้า/ครัวตามลำดับนี้ */}
+                {(() => {
+                  const ids = (editingItem.bundledItems || []).map(String);
+                  const order = [...new Set(ids)];
+                  if (order.length < 2) return null;
+                  const move = (idx, dir) => {
+                    const next = [...order];
+                    const j = idx + dir;
+                    if (j < 0 || j >= next.length) return;
+                    [next[idx], next[j]] = [next[j], next[idx]];
+                    const rebuilt = next.flatMap(id => ids.filter(b => b === id));
+                    setEditingItem({ ...editingItem, bundledItems: rebuilt });
+                  };
+                  const btn = (disabled) => ({
+                    padding: '0.15rem 0.45rem', margin: 0, borderRadius: 4, border: '1px solid var(--border-color)',
+                    background: 'var(--bg-main)', color: disabled ? 'var(--text-muted)' : 'var(--text-main)',
+                    cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, fontSize: '0.75rem'
+                  });
+                  return (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
+                        {lang === 'th' ? 'ลำดับการแสดงในตะกร้า (กด ▲▼ เพื่อเลื่อน):' : 'Display order in cart (use ▲▼ to reorder):'}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        {order.map((id, idx) => {
+                          const m = menuItems.find(x => String(x.id) === id);
+                          const qty = ids.filter(b => b === id).length;
+                          return (
+                            <div key={id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                              <span style={{ width: 18, color: 'var(--text-muted)' }}>{idx + 1}.</span>
+                              <span style={{ flex: 1, fontWeight: 600 }}>{m ? m.name : id}{qty > 1 ? ` ×${qty}` : ''}</span>
+                              <button type="button" style={btn(idx === 0)} disabled={idx === 0} onClick={() => move(idx, -1)}>▲</button>
+                              <button type="button" style={btn(idx === order.length - 1)} disabled={idx === order.length - 1} onClick={() => move(idx, 1)}>▼</button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* ── Popup / ตัวเลือกตอนสั่ง (Order Wizard) ───────────── */}
@@ -1136,7 +1203,7 @@ const ManageMenu = () => {
                           {
                             label: 'Margin',
                             value: `${editingItem.price > 0 ? ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100).toFixed(1) : '0.0'}%`,
-                            color: editingItem.price > 0 && ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100) >= 50 ? '#22c55e' : '#d84518'
+                            color: editingItem.price > 0 && ((parseFloat(editingItem.price) - bomTotalCost) / parseFloat(editingItem.price) * 100) >= 50 ? '#22c55e' : '#8e0b20'
                           },
                         ].map(c => (
                           <div key={c.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, padding: '0.45rem 0.85rem', textAlign: 'center', flex: 1, minWidth: 90 }}>
@@ -1195,7 +1262,7 @@ const ManageMenu = () => {
                       <Plus size={14} /> เพิ่มวัตถุดิบ
                     </button>
                     {ingredients.length === 0 && (
-                      <p style={{ color: '#d84518', fontSize: '0.78rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                      <p style={{ color: '#8e0b20', fontSize: '0.78rem', marginTop: '0.5rem', marginBottom: 0 }}>
                         💡 ยังไม่มีคลังวัตถุดิบ — ไปตั้งค่าที่หน้า <strong>BOM</strong> แท็บ "วัตถุดิบ" ก่อน
                       </p>
                     )}
