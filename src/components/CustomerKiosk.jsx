@@ -244,7 +244,7 @@ const writeLogin = (v) => {
   } catch { /* ไม่มีที่เก็บ */ }
 };
 
-const CustomerKiosk = ({ liveMenu: rawMenu = [], categories = [], settings = {}, onSendOrder, onLoadBill, onRequestPayment, onCheckPayment, lang: initialLang = 'th', tables = [], branchId = '' }) => {
+const CustomerKiosk = ({ liveMenu: rawMenu = [], categories = [], settings = {}, onSendOrder, onLoadBill, onRequestPayment, onCheckPayment, lang: initialLang = 'th', branchId = '' }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   // QR โต๊ะมีเลขโต๊ะในลิงก์ (ส่งไปหลังบ้านให้พนักงานรู้โต๊ะ แต่ไม่แสดงให้ลูกค้าเห็น)
@@ -937,6 +937,8 @@ const CustomerKiosk = ({ liveMenu: rawMenu = [], categories = [], settings = {},
         : 'Could not notify the shop — please try again or call our staff.');
       return;
     }
+    // ยอดจริงคิดที่เซิร์ฟเวอร์จากบิลโต๊ะ (รวมที่คนอื่นในโต๊ะสั่ง) — ใช้ยอดนั้นแสดงในหน้ารอ
+    if (typeof res.total === 'number') snap.total = res.total;
     setPaySnap(snap);
     savePending(snap);
     if (res.status === 'approved') {

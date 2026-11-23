@@ -1465,7 +1465,7 @@ function App() {
       try {
         const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
         const json = await res.json().catch(() => null);
-        if (json && json.success) return { success: true, status: json.status || 'pending', orderNumber: json.orderNumber || '' };
+        if (json && json.success) return { success: true, status: json.status || 'pending', orderNumber: json.orderNumber || '', ...(typeof json.total === 'number' ? { total: json.total } : {}) };
         // เมนูเฉพาะสมาชิกแต่ยังไม่ได้ล็อกอิน/หมดเวลา → บอกหน้าลูกค้าทันที ไม่ต้องยิงซ้ำ
         if (json && json.memberOnly) return { success: false, memberOnly: true, error: json.error };
         if (json && json.memberQuota) return { success: false, memberQuota: true, error: json.error };
@@ -1489,7 +1489,8 @@ function App() {
       return { ...item, food: { ...item.food, price: unitPrice } };
     });
     const payload = {
-      action: 'addTableOrder',
+      // เซิร์ฟเวอร์ลงรายการโต๊ะแบบยังไม่จ่าย + จำว่ายังไม่พิมพ์ใบครัว (หน้าขายจะดึงไปพิมพ์ให้)
+      action: 'kioskOrder',
       branchId: branchKey,
       tableNumber: String(targetTableNo || ''),
       sessionId: String(sessionId),
@@ -1535,97 +1536,49 @@ function App() {
     } catch { return null; }
   };
 
+  // ── ใบครัวของรอบที่ลูกค้าสั่งผ่าน QR (สั่งก่อนจ่ายทีหลัง) ──
+  // เครื่องพนักงานที่ตั้งเครื่องพิมพ์ไว้ ถามเซิร์ฟเวอร์ทุก 6 วิ — เซิร์ฟเวอร์ให้แต่ละรอบกับเครื่องเดียว จึงไม่พิมพ์ซ้ำ
+  // พิมพ์ไม่สำเร็จ → คืนรอบนั้นให้เครื่องอื่น/รอบถัดไปพิมพ์ใหม่
+  const kioskTicketRef = React.useRef({});
+  kioskTicketRef.current = { allMenu: allMenu.length > 0 ? allMenu : liveMenu, tables: kioskTables, branchKey };
+  const canPrintKitchen = !!currentUser && !isKioskPath && !isLandingPath && getPrinters().length > 0;
+  React.useEffect(() => {
+    if (!canPrintKitchen) return undefined;
+    let busy = false;
+    const tick = async () => {
+      if (busy || (typeof document !== 'undefined' && document.hidden)) return;
+      busy = true;
+      try {
+        const { allMenu: menu, tables, branchKey: b } = kioskTicketRef.current;
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'claimKioskTickets', branchId: b }) });
+        const json = await res.json().catch(() => null);
+        const rounds = json && json.success && Array.isArray(json.rounds) ? json.rounds : [];
+        for (const round of rounds) {
+          const rows = round.items.map(it => ({ ItemName: it.name, Quantity: it.qty, Options: it.options, ItemPrice: it.price }));
+          const order = buildKitchenOrder(rows, round.tableNumber, 'qr-' + round.sessionId, round.timestamp || getThaiTimeISO(), diningForTable(tables, round.tableNumber));
+          const pr = await printKitchenOrder(order, menu).catch(err => ({ success: false, error: err.message }));
+          if (pr && pr.success) {
+            setSaveAlert({ type: 'success', msg: `🔔 โต๊ะ ${round.tableNumber} สั่งอาหารผ่าน QR · ส่งใบครัวแล้ว` });
+          } else {
+            setSaveAlert({ type: 'error', msg: `⚠️ โต๊ะ ${round.tableNumber} สั่งผ่าน QR แต่พิมพ์ใบครัวไม่สำเร็จ: ${(pr && pr.error) || 'ไม่ทราบสาเหตุ'} — จะลองใหม่อัตโนมัติ` });
+            fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'releaseKioskTickets', branchId: b, sessionIds: [round.sessionId] }) }).catch(() => {});
+          }
+        }
+        if (rounds.length) refreshTableOrders();
+      } catch { /* เน็ตสะดุด — รอบหน้าค่อยถามใหม่ */ }
+      busy = false;
+    };
+    tick();
+    const timer = setInterval(tick, 6000);
+    return () => clearInterval(timer);
+  }, [canPrintKitchen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const checkKioskPayment = async (paySessionId) => {
     try {
       const res = await fetch(`${API_URL}?action=getKioskPayment&id=${encodeURIComponent(paySessionId)}`);
       const json = await res.json();
       return json && json.success ? json : null;
     } catch { return null; }
-  };
-
-  // ออเดอร์จากคีออส — ลูกค้าโอนเงินและสลิปผ่านการตรวจมาแล้ว จึงต้องบันทึกเป็น "บิลที่จ่ายแล้ว"
-  // ไม่ใช่แค่รายการรายโต๊ะ ไม่งั้นยอดไม่เข้ารายงาน/สรุปกะ และพนักงานอาจเก็บเงินซ้ำตอนปิดโต๊ะ
-  // ฝั่งเซิร์ฟเวอร์ (action kioskPaidOrder) ออกเลขบิล + ลง Orders/PaymentSummary/TableOrders + ตัดสต็อก
-  // ให้ครบในคำขอเดียวโดยมีล็อกกันหลายโต๊ะกดจ่ายพร้อมกัน
-  const handleKioskSendOrder = async (targetTableNo, cartItems, total, paymentMethod, paySessionId) => {
-    // sessionId มาจากหน้าคีออส และคงค่าเดิมทุกครั้งที่กดส่งซ้ำ → หลังบ้านใช้กันบิลซ้ำ
-    const sessionId = String(paySessionId || (String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8)));
-    const timestamp = getThaiTimeISO();
-
-    const cartForServer = cartItems.map(item => {
-      let unitPrice = Number(item.food.price) || 0;
-      if (item.allPopups && item.allPopups.length > 0) {
-        item.allPopups.forEach(p => { unitPrice += Number(p.price || 0); });
-      }
-      return {
-        ...item,
-        food: { ...item.food, price: unitPrice }
-      };
-    });
-
-    const payload = {
-      action: 'kioskPaidOrder',
-      branchId: branchKey,
-      tableNumber: String(targetTableNo),
-      sessionId,
-      items: cartForServer,
-      total: Number(total) || 0,
-      paymentMethod: paymentMethod || 'เงินโอน (QR)',
-      timestamp
-    };
-
-    // ลูกค้าจ่ายเงินไปแล้ว ห้ามเงียบหาย — ยิงซ้ำได้ 3 ครั้ง (เน็ตมือถือหลุดง่าย)
-    // ยิงซ้ำแล้วบิลไม่ซ้ำ เพราะฝั่งเซิร์ฟเวอร์เช็ก sessionId เดิมแล้วคืนเลขบิลเดิมกลับมา
-    let lastError = '';
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-        });
-        const json = await res.json().catch(() => null);
-        if (json && json.success) {
-          setTimeout(() => fetchOrdersFromSheet(), 1500);
-          return { success: true, orderNumber: json.orderNumber || '' };
-        }
-        lastError = (json && json.error) || 'บันทึกไม่สำเร็จ';
-      } catch (e) {
-        lastError = String(e.message || e);
-      }
-      await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
-    }
-    // แบ็กเอนด์ยังเป็นสคริปต์เวอร์ชันเก่า (ยังไม่ได้ deploy ตัวใหม่) — ห้ามทิ้งออเดอร์ที่จ่ายเงินมาแล้ว
-    // ถอยไปใช้วิธีเดิมคือส่งเข้ารายการโต๊ะ พร้อมทำเครื่องหมายว่าชำระแล้วไว้ในรายการให้พนักงานเห็น
-    if (lastError.indexOf('Unknown action') !== -1) {
-      try {
-        const marked = cartForServer.map(item => ({
-          ...item,
-          note: `${item.note ? item.note + ' ' : ''}💳 ชำระผ่าน QR แล้ว (${paymentMethod || ''})`
-        }));
-        await fetch(API_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify({
-            action: 'addTableOrder',
-            branchId: branchKey,
-            tableNumber: String(targetTableNo),
-            sessionId,
-            items: marked,
-            timestamp,
-            recordedBy: 'Self-Order'
-          })
-        });
-        setTimeout(() => fetchOrdersFromSheet(), 1500);
-        return { success: true, orderNumber: '', needStaff: true };
-      } catch (e) {
-        lastError = String(e.message || e);
-      }
-    }
-
-    console.error('Error saving kiosk order:', lastError);
-    return { success: false, error: lastError };
   };
 
   // มีหลายสาขาแต่เครื่องนี้ยังไม่ได้เลือกสาขา → กลับไปหน้าแรกให้เลือกก่อน
