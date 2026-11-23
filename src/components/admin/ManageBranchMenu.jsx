@@ -217,7 +217,7 @@ export default function ManageBranchMenu({ branchId: initialBranch = '', branche
               const globallyOff = m.isActive === false;
               const options = getPriceOptions(m);
               return (
-                <div key={id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem 1rem', padding: '0.75rem 1rem', borderTop: idx ? '1px solid rgba(0,0,0,0.06)' : 'none', background: isChanged(o) ? 'rgba(234,179,8,0.06)' : 'transparent', opacity: globallyOff ? 0.55 : 1 }}>
+                <div key={id} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.6rem 1rem', padding: '0.75rem 1rem', borderTop: idx ? '1px solid rgba(0,0,0,0.06)' : 'none', background: isChanged(o) ? 'rgba(200, 16, 46, 0.06)' : 'transparent', opacity: globallyOff ? 0.55 : 1 }}>
                   <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                     <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
                     {globallyOff && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ปิดขายในเมนูกลาง (ทุกสาขา)</div>}
@@ -243,7 +243,7 @@ export default function ManageBranchMenu({ branchId: initialBranch = '', branche
                             value={val}
                             placeholder={String(opt.price)}
                             onChange={e => setPrice(id, key, e.target.value)}
-                            style={{ ...inp, width: 78, textAlign: 'right', fontWeight: val !== '' ? 800 : 400, borderColor: val !== '' ? 'rgba(234,179,8,0.7)' : 'rgba(0,0,0,0.15)' }}
+                            style={{ ...inp, width: 78, textAlign: 'right', fontWeight: val !== '' ? 800 : 400, borderColor: val !== '' ? 'rgba(200, 16, 46, 0.7)' : 'rgba(0,0,0,0.15)' }}
                           />
                         </label>
                       );

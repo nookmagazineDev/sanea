@@ -46,11 +46,11 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
     <div style={{ minHeight: '100vh', background: 'var(--bg, #0f0f0f)', color: 'white', fontFamily: 'inherit' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.4)', position: 'sticky', top: 0, zIndex: 10 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.72)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', padding: 0 }}>
           <ChevronLeft size={20} /> {lang === 'th' ? 'กลับ' : 'Back'}
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1 }}>
-          <ReceiptText size={24} color="#f1592a" />
+          <ReceiptText size={24} color="#c8102e" />
           <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>{lang === 'th' ? 'รายการบิลค้าง' : 'Outstanding Bills'}</h1>
         </div>
         <button onClick={load} disabled={loading} style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'white', cursor: 'pointer', padding: '0.5rem 0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
@@ -63,18 +63,18 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
         {/* Summary */}
         <div style={{ ...card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.25rem', marginBottom: '1.25rem' }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{lang === 'th' ? `บิลค้างทั้งหมด ${bills.length} บิล` : `${bills.length} bills`}</span>
-          <span style={{ color: '#f1592a', fontWeight: 900, fontSize: '1.6rem' }}>฿{grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <span style={{ color: '#ff5c70', fontWeight: 900, fontSize: '1.6rem' }}>฿{grandTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.4)' }}>
+          <div style={{ textAlign: 'center', padding: '3rem', color: 'rgba(255,255,255,0.72)' }}>
             <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', marginBottom: '0.75rem' }} />
             <p>{lang === 'th' ? 'กำลังโหลด...' : 'Loading...'}</p>
           </div>
         ) : bills.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '3rem' }}>
             <ReceiptText size={52} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-            <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0 }}>{lang === 'th' ? 'ไม่มีบิลค้าง' : 'No outstanding bills'}</p>
+            <p style={{ color: 'rgba(255,255,255,0.72)', margin: 0 }}>{lang === 'th' ? 'ไม่มีบิลค้าง' : 'No outstanding bills'}</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -88,24 +88,24 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
                     style={{ width: '100%', background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '1rem 1.1rem', textAlign: 'left', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '1rem' }}
                   >
                     <div style={{ background: 'rgba(180,83,9,0.18)', border: '1px solid rgba(180,83,9,0.4)', borderRadius: 10, padding: '0.5rem 0.85rem', textAlign: 'center', minWidth: 64 }}>
-                      <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.5)' }}>{lang === 'th' ? 'โต๊ะ' : 'Table'}</div>
-                      <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#f1592a', lineHeight: 1 }}>{b.tableNo}</div>
+                      <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.72)' }}>{lang === 'th' ? 'โต๊ะ' : 'Table'}</div>
+                      <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#ff5c70', lineHeight: 1 }}>{b.tableNo}</div>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
                         <User size={13} color="rgba(255,255,255,0.5)" /> {b.customerName || (lang === 'th' ? 'ไม่ระบุชื่อ' : 'No name')}
                       </div>
                       {b.phone && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.82rem', marginTop: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.82rem', marginTop: 2 }}>
                           <Phone size={12} /> {b.phone}
                         </div>
                       )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', marginTop: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'rgba(255,255,255,0.72)', fontSize: '0.78rem', marginTop: 2 }}>
                         <Clock size={12} /> {fmtDate(b.createdAt)}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ color: '#f1592a', fontWeight: 800, fontSize: '1.1rem' }}>฿{(Number(b.total) || 0).toLocaleString()}</div>
+                      <div style={{ color: '#ff5c70', fontWeight: 800, fontSize: '1.1rem' }}>฿{(Number(b.total) || 0).toLocaleString()}</div>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
                         {lang === 'th' ? 'ดูรายการ' : 'Details'} {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                       </div>
@@ -124,7 +124,7 @@ const OutstandingBills = ({ lang = 'th', onBack }) => {
                             return (
                               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.88rem' }}>
                                 <div style={{ flex: 1 }}>
-                                  <span style={{ color: 'var(--accent, #f97316)', fontWeight: 700, marginRight: 6 }}>{qty}×</span>
+                                  <span style={{ color: 'var(--accent, #c8102e)', fontWeight: 700, marginRight: 6 }}>{qty}×</span>
                                   {lang === 'th' ? (it.ItemName || '') : (it.ItemNameEn || it.ItemName || '')}
                                   {it.Options && <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', paddingLeft: '1.4rem' }}>{it.Options}</div>}
                                 </div>

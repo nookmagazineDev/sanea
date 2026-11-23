@@ -10,7 +10,7 @@ const isHQ = (b) => !b || b === 'สำนักงานใหญ่' || /^0+$/
 
 const money = (n) => (Number(n) || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const overlay = { position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' };
+const overlay = { position: 'fixed', inset: 0, background: 'rgba(20, 20, 20, 0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' };
 const panel = { background: '#fff', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '92vh', overflowY: 'auto', padding: '1.25rem 1.4rem', color: 'var(--text-main)', fontFamily: 'inherit' };
 const label = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', margin: '0.75rem 0 0.3rem' };
 const input = { width: '100%', boxSizing: 'border-box', padding: '0.55rem 0.7rem', borderRadius: 8, border: '1px solid rgba(0,0,0,0.18)', fontFamily: 'inherit', fontSize: '0.92rem' };
@@ -138,9 +138,9 @@ export default function TaxInvoiceModal({ order, invoice, onClose, onChanged, ca
               <div>ก่อน VAT ฿{money(active.subtotal)} · VAT {active.vatRate}% ฿{money(active.vatAmount)} · รวม <b>฿{money(active.total)}</b></div>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-              <button style={btn('#0f172a')} onClick={() => doPrint(active)}><Printer size={16} /> พิมพ์ต้นฉบับ</button>
-              <button style={btn('#475569')} onClick={() => doPrint(active, true)}><Printer size={16} /> พิมพ์สำเนา</button>
-              <button style={btn('#eff6ff', '#2563eb')} onClick={startEdit}><Pencil size={16} /> แก้ไขข้อมูล</button>
+              <button style={btn('#141414')} onClick={() => doPrint(active)}><Printer size={16} /> พิมพ์ต้นฉบับ</button>
+              <button style={btn('#454545')} onClick={() => doPrint(active, true)}><Printer size={16} /> พิมพ์สำเนา</button>
+              <button style={btn('#f5f5f5', '#141414')} onClick={startEdit}><Pencil size={16} /> แก้ไขข้อมูล</button>
               {canCancel && !askCancel && (
                 <button style={btn('rgba(220,38,38,0.1)', '#dc2626')} onClick={() => setAskCancel(true)}><Ban size={16} /> ยกเลิกใบนี้</button>
               )}
@@ -151,7 +151,7 @@ export default function TaxInvoiceModal({ order, invoice, onClose, onChanged, ca
                 <input style={input} value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
                 <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                   <button style={btn('#dc2626')} disabled={busy} onClick={cancel}>{busy ? 'กำลังยกเลิก...' : 'ยืนยันยกเลิก'}</button>
-                  <button style={btn('#e2e8f0', '#0f172a')} onClick={() => setAskCancel(false)}>ไม่ยกเลิก</button>
+                  <button style={btn('#e4e4e4', '#141414')} onClick={() => setAskCancel(false)}>ไม่ยกเลิก</button>
                 </div>
               </div>
             )}
@@ -159,12 +159,12 @@ export default function TaxInvoiceModal({ order, invoice, onClose, onChanged, ca
         ) : (
           <>
             {editMode && (
-              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '0.6rem 0.8rem' }}>
+              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#000000', background: '#f5f5f5', border: '1px solid #d0d0d0', borderRadius: 10, padding: '0.6rem 0.8rem' }}>
                 แก้ไขข้อมูลใบ {invoice.invoiceNo} — กดบันทึกแล้วระบบจะยกเลิกใบเดิมและออก<b>เลขที่ใหม่</b>ให้ทันที (ใบกำกับภาษีแก้เลขเดิมไม่ได้) แล้วพิมพ์ใบใหม่ออกเครื่อง
               </div>
             )}
             {!editMode && invoice && invoice.cancelled && (
-              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#b45309' }}>
+              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#8e0b20' }}>
                 ใบเดิม {invoice.invoiceNo} ถูกยกเลิกแล้ว ({invoice.cancelReason}) — ออกใบใหม่ได้ด้านล่าง
               </div>
             )}
@@ -210,7 +210,7 @@ export default function TaxInvoiceModal({ order, invoice, onClose, onChanged, ca
               <button style={btn('#16a34a')} disabled={busy} onClick={issue}>
                 <FileText size={16} /> {busy ? 'กำลังบันทึก...' : (editMode ? 'บันทึกการแก้ไขและพิมพ์ใบใหม่' : 'ออกใบกำกับภาษีและพิมพ์')}
               </button>
-              <button style={btn('#e2e8f0', '#0f172a')} onClick={editMode ? () => setEditMode(false) : onClose}>{editMode ? 'ยกเลิกการแก้ไข' : 'ปิด'}</button>
+              <button style={btn('#e4e4e4', '#141414')} onClick={editMode ? () => setEditMode(false) : onClose}>{editMode ? 'ยกเลิกการแก้ไข' : 'ปิด'}</button>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: '0.75rem 0 0' }}>
               พิมพ์ออกเครื่องพิมพ์ใบเสร็จของเครื่องนี้ · ยอดเงินคิดจากบิลจริง ราคารวม VAT แล้ว (ถอด VAT ตามอัตราในตั้งค่าร้าน ไม่ได้ตั้ง = 7%) · ข้อมูลร้านมาจาก หลังบ้าน &gt; สาขา · ลูกค้าถูกบันทึกไว้ใช้ครั้งหน้าอัตโนมัติ

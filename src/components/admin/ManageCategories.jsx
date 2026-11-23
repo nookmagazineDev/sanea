@@ -278,7 +278,7 @@ const ManageCategories = () => {
                         {item.isActive !== false ? (lang === 'th' ? 'เปิดแสดง' : 'Active') : (lang === 'th' ? 'ซ่อน' : 'Hidden')}
                       </span>
                       {item.isActive !== false && item.visibility && item.visibility !== 'all' && (
-                        <div style={{ marginTop: 4, fontSize: '0.78rem', fontWeight: 600, color: item.visibility === 'staff' ? '#2563eb' : '#c2410c' }}>
+                        <div style={{ marginTop: 4, fontSize: '0.78rem', fontWeight: 600, color: item.visibility === 'staff' ? '#141414' : '#a50d25' }}>
                           {item.visibility === 'staff' ? (lang === 'th' ? '👤 เฉพาะพนักงาน' : 'Staff only') : (lang === 'th' ? '📱 เฉพาะลูกค้า' : 'Customers only')}
                         </div>
                       )}
@@ -362,7 +362,7 @@ const ManageCategories = () => {
                     return (
                       <button type="button" key={opt.value} onClick={() => setEditingItem({ ...editingItem, visibility: opt.value })}
                         style={{ padding: '0.45rem 0.85rem', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem', fontWeight: on ? 700 : 500,
-                          border: `1.5px solid ${on ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(234,179,8,0.15)' : '#fff', color: 'var(--text-main)' }}>
+                          border: `1.5px solid ${on ? 'var(--accent)' : 'rgba(0,0,0,0.15)'}`, background: on ? 'rgba(200, 16, 46, 0.15)' : '#fff', color: 'var(--text-main)' }}>
                         {lang === 'th' ? opt.label : opt.labelEn}
                       </button>
                     );
@@ -375,7 +375,7 @@ const ManageCategories = () => {
                 </div>
               </div>
 
-              <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', background: 'rgba(200, 16, 46, 0.06)', border: '1px solid rgba(200, 16, 46, 0.2)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                 ℹ️ {lang === 'th'
                   ? 'การตั้งค่าตัวเลือกตอนสั่ง (Popup) ย้ายไปอยู่ที่หน้า "จัดการเมนู" แล้ว — ตั้งค่าได้รายเมนูในส่วน "ตัวเลือกตอนสั่ง (Popup)"'
                   : 'Order option (popup) settings have moved to the "Manage Menu" page — configure them per item under "Order Options (Popups)".'}

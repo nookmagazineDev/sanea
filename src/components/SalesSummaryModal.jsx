@@ -223,8 +223,8 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
   }, [data, payMap, branchFilter]);
 
   // Calculations for Summary — memoize ไว้ ไม่งั้นพิมพ์ค้นหา/สลับหน้าทีจะวนคำนวณใหม่ทั้งก้อนทุกครั้ง
-  const { totalSales, totalCash, totalXfer, totalCard, totalBills } = useMemo(() => {
-    let totalSales = 0, totalCash = 0, totalXfer = 0, totalCard = 0;
+  const { totalSales, totalCash, totalXfer, totalCard, totalVoucher, totalBills } = useMemo(() => {
+    let totalSales = 0, totalCash = 0, totalXfer = 0, totalCard = 0, totalVoucher = 0;
     bills.forEach(o => {
       totalSales += o.total;
       const sd = o.splitDetail && typeof o.splitDetail === 'object' ? o.splitDetail : null;
@@ -232,15 +232,17 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
         totalCash += Number(sd.cash) || 0;
         totalXfer += Number(sd.transfer) || 0;
         totalCard += Number(sd.card) || 0;
+        totalVoucher += Number(sd.voucher) || 0;
       } else {
         const m = (o.paymentMethod || '').toLowerCase();
         if (m.includes('สด') || m === 'cash') totalCash += o.total;
         else if (m.includes('โอน') || m.includes('qr') || m === 'transfer') totalXfer += o.total;
         else if (m.includes('บัตร') || m === 'card') totalCard += o.total;
+        else if (m.includes('voucher')) totalVoucher += o.total;
         else totalCash += o.total;
       }
     });
-    return { totalSales, totalCash, totalXfer, totalCard, totalBills: bills.length };
+    return { totalSales, totalCash, totalXfer, totalCard, totalVoucher, totalBills: bills.length };
   }, [bills]);
 
   // Calculate Menu Breakdown including sub-items/popups — เป็นลูปหนักสุด (วนทุกแถวออเดอร์ x2) จึง memoize
@@ -647,6 +649,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
         ['ยอดเงินสด (บาท)', totalCash],
         ['ยอดเงินโอน (บาท)', totalXfer],
         ['ยอดบัตรเครดิต (บาท)', totalCard],
+        ['ยอด Voucher (บาท)', totalVoucher],
         [],
         ['ยอดขายสะสมรายเมนู'],
         ['อันดับ', 'ชื่อเมนู', 'หมวดหมู่', 'จำนวนที่ขายได้', 'รายได้รวม (บาท)'],
@@ -669,6 +672,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
           if (sd.cash > 0) parts.push(`สด ฿${sd.cash}`);
           if (sd.transfer > 0) parts.push(`โอน ฿${sd.transfer}`);
           if (sd.card > 0) parts.push(`บัตร ฿${sd.card}`);
+          if (sd.voucher > 0) parts.push(`Voucher ฿${sd.voucher}`);
           splitLabel = parts.join(', ');
         }
 
@@ -770,6 +774,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
           if (sd.cash > 0) parts.push(`สด ฿${sd.cash}`);
           if (sd.transfer > 0) parts.push(`โอน ฿${sd.transfer}`);
           if (sd.card > 0) parts.push(`บัตร ฿${sd.card}`);
+          if (sd.voucher > 0) parts.push(`Voucher ฿${sd.voucher}`);
           splitLabel = parts.join(', ');
         }
         
@@ -839,6 +844,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
       cash: totalCash,
       transfer: totalXfer,
       card: totalCard,
+      voucher: totalVoucher,
       ranges,
       cancelCount: cancelled.size,
       cancelTotal: [...cancelled.values()].reduce((s, v) => s + v, 0),
@@ -876,7 +882,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
         
         {/* Header */}
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#c084fc', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#f07a8a', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <BarChart2 size={24} /> {view === 'summary' ? (lang === 'th' ? 'สรุปยอดขายร้าน' : 'Sales Summary') : (lang === 'th' ? 'รายละเอียดบิลทั้งหมด' : 'All Bills Details')}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -890,7 +896,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
         </div>
 
         {/* Branch filter bar — admin เลือกได้ทุกสาขา / สาขาทั่วไปล็อกเฉพาะของตัวเอง */}
-        <div style={{ padding: '0.65rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(124,58,237,0.04)' }}>
+        <div style={{ padding: '0.65rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(200, 16, 46, 0.04)' }}>
           <span style={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600, whiteSpace: 'nowrap' }}>🏠 สาขา</span>
           {isAdmin ? (
             <select
@@ -902,7 +908,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
               {branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
           ) : (
-            <span style={{ flex: 1, fontSize: '0.85rem', fontWeight: 700, color: '#c084fc' }}>{branchFilter || '—'}</span>
+            <span style={{ flex: 1, fontSize: '0.85rem', fontWeight: 700, color: '#f07a8a' }}>{branchFilter || '—'}</span>
           )}
         </div>
 
@@ -920,7 +926,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                 <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>สิ้นสุด (To)</span>
                 <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: 'white', padding: '0.4rem 0.5rem', fontSize: '0.82rem', width: '100%', outline: 'none' }} />
               </div>
-              <button onClick={() => loadReport(from, to)} disabled={loading} style={{ background: '#7c3aed', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '0.45rem 0.75rem', alignSelf: 'flex-end', height: '32px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button onClick={() => loadReport(from, to)} disabled={loading} style={{ background: '#c8102e', border: 'none', borderRadius: '8px', color: 'white', cursor: 'pointer', padding: '0.45rem 0.75rem', alignSelf: 'flex-end', height: '32px', fontSize: '0.8rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {lang === 'th' ? 'ดึงรายงาน' : 'Filter'}
               </button>
             </div>
@@ -960,7 +966,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
         <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', color: 'rgba(255,255,255,0.5)' }}>
-              <RefreshCw size={36} style={{ animation: 'spin 1.5s linear infinite', marginBottom: '1.25rem', color: '#c084fc' }} />
+              <RefreshCw size={36} style={{ animation: 'spin 1.5s linear infinite', marginBottom: '1.25rem', color: '#f07a8a' }} />
               <span style={{ fontSize: '0.9rem' }}>{lang === 'th' ? 'กำลังดึงรายงานข้อมูลยอดขายล่าสุด...' : 'Fetching latest sales report...'}</span>
             </div>
           ) : error ? (
@@ -990,7 +996,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                   <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr', gap: '0.75rem' }}>
                     <div style={{ ...cardStyle, background: 'rgba(241,89,42,0.05)', border: '1px solid rgba(241,89,42,0.15)', textAlign: 'center', padding: '1.1rem' }}>
                       <div style={{ fontSize: '0.78rem', color: 'rgba(241,89,42,0.8)', fontWeight: 700, marginBottom: '4px' }}>💰 ยอดขายทั้งหมด</div>
-                      <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#f1592a' }}>฿{fmt(totalSales)}</div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 900, color: '#c8102e' }}>฿{fmt(totalSales)}</div>
                     </div>
                     
                     <button 
@@ -999,7 +1005,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(192,132,252,0.1)'}
                       onMouseLeave={e => e.currentTarget.style.background = 'rgba(192,132,252,0.06)'}
                     >
-                      <div style={{ fontSize: '0.78rem', color: '#c084fc', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <div style={{ fontSize: '0.78rem', color: '#f07a8a', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '2px' }}>
                         🧾 จำนวนบิลทั้งหมด <ChevronRight size={12} />
                       </div>
                       <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'white' }}>{totalBills} บิล</div>
@@ -1014,8 +1020,9 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                       {[
                         { label: '💵 เงินสด (Cash)', value: totalCash, color: '#22c55e' },
-                        { label: '📱 เงินโอน / QR (Transfer)', value: totalXfer, color: '#38bdf8' },
-                        { label: '💳 บัตรเครดิต (Card)', value: totalCard, color: '#f97316' }
+                        { label: '📱 เงินโอน / QR (Transfer)', value: totalXfer, color: '#f07a8a' },
+                        { label: '💳 บัตรเครดิต (Card)', value: totalCard, color: '#c8102e' },
+                        { label: '🎟️ Voucher', value: totalVoucher, color: '#f472b6' }
                       ].map(row => (
                         <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', alignItems: 'center' }}>
                           <span style={{ color: 'rgba(255,255,255,0.55)' }}>{row.label}</span>
@@ -1047,13 +1054,13 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                             <div style={{ display: 'flex', gap: '6px', minWidth: 0, alignItems: 'center' }}>
                               <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 'bold', minWidth: '16px' }}>{i + 1}.</span>
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: r.isSubItem ? 'rgba(255,255,255,0.55)' : 'white' }}>
-                                {r.isSubItem && <span style={{ color: '#c084fc', marginRight: '4px', fontSize: '0.78rem' }}>↳</span>}
+                                {r.isSubItem && <span style={{ color: '#f07a8a', marginRight: '4px', fontSize: '0.78rem' }}>↳</span>}
                                 {r.name}
                                 {r.isSubItem && <span style={{ fontSize: '0.72rem', color: 'rgba(192,132,252,0.4)', marginLeft: '6px' }}>[เสริม/เซ็ต]</span>}
                               </span>
                             </div>
                             <div style={{ display: 'flex', gap: '14px', flexShrink: 0, alignItems: 'center' }}>
-                              <span style={{ color: '#f1592a', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ color: '#c8102e', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 {r.qty} {lang === 'th' ? 'รายการ' : 'qty'}
                                 <ChevronRight size={12} style={{ opacity: 0.5 }} />
                               </span>
@@ -1083,7 +1090,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                         
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', alignItems: 'center', padding: '0.45rem 0.4rem 0.25rem', borderTop: '1px solid rgba(255,255,255,0.15)', marginTop: '4px', fontWeight: 'bold' }}>
                           <span style={{ color: 'white' }}>รวมยอดขายสุทธิ (Grand Total)</span>
-                          <span style={{ color: '#f1592a', fontSize: '0.9rem' }}>฿{fmt(totalSales)}</span>
+                          <span style={{ color: '#c8102e', fontSize: '0.9rem' }}>฿{fmt(totalSales)}</span>
                         </div>
                       </div>
                     )}
@@ -1179,22 +1186,23 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                           if (sd.cash > 0) parts.push(`สด ฿${fmt(sd.cash)}`);
                           if (sd.transfer > 0) parts.push(`โอน ฿${fmt(sd.transfer)}`);
                           if (sd.card > 0) parts.push(`บัตร ฿${fmt(sd.card)}`);
+                          if (sd.voucher > 0) parts.push(`Voucher ฿${fmt(sd.voucher)}`);
                           splitLabel = `(${parts.join(', ')})`;
                         }
 
                         // Determine payment badge colors
                         const m = (bill.paymentMethod || '').toLowerCase();
-                        let badgeColor = '#c084fc';
+                        let badgeColor = '#f07a8a';
                         let badgeBg = 'rgba(192,132,252,0.1)';
                         if (m.includes('สด') || m === 'cash') {
                           badgeColor = '#4ade80';
                           badgeBg = 'rgba(74,222,128,0.1)';
                         } else if (m.includes('โอน') || m.includes('qr') || m === 'transfer') {
-                          badgeColor = '#38bdf8';
-                          badgeBg = 'rgba(56,189,248,0.1)';
+                          badgeColor = '#f07a8a';
+                          badgeBg = 'rgba(240, 122, 138, 0.1)';
                         } else if (m.includes('บัตร') || m === 'card') {
-                          badgeColor = '#fb923c';
-                          badgeBg = 'rgba(251,146,60,0.1)';
+                          badgeColor = '#e0455c';
+                          badgeBg = 'rgba(224, 69, 92, 0.1)';
                         }
 
                         return (
@@ -1202,7 +1210,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                             {/* Bill Header */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span style={{ fontWeight: 800, color: '#c084fc', fontSize: '0.95rem' }}>{bill.orderNumber}</span>
+                                <span style={{ fontWeight: 800, color: '#f07a8a', fontSize: '0.95rem' }}>{bill.orderNumber}</span>
                                 <span style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '6px', padding: '0.15rem 0.45rem', fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
                                   {bill.customerName}
                                 </span>
@@ -1247,7 +1255,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginRight: '6px' }}>รวมยอด</span>
-                                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f1592a' }}>฿{fmt(bill.total)}</span>
+                                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#c8102e' }}>฿{fmt(bill.total)}</span>
                               </div>
                             </div>
                           </div>
@@ -1278,7 +1286,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
 
                   {/* Title of selected menu item */}
                   <div style={{ ...cardStyle, background: 'rgba(192,132,252,0.04)', border: '1px solid rgba(192,132,252,0.15)', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#c084fc', fontWeight: 700 }}>🔍 รายละเอียดประวัติการสั่งซื้อ</span>
+                    <span style={{ fontSize: '0.75rem', color: '#f07a8a', fontWeight: 700 }}>🔍 รายละเอียดประวัติการสั่งซื้อ</span>
                     <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'white' }}>{drilldownItem}</span>
                   </div>
 
@@ -1313,10 +1321,10 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderTop: '1px dashed rgba(255,255,255,0.06)', paddingTop: '0.6rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
                           <span style={{ color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#c084fc' }}></span>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#f07a8a' }}></span>
                             รายการที่เลือกในชุด/ป๊อปอัป
                           </span>
-                          <strong style={{ color: '#c084fc' }}>{drilldownSummary.totalPopupQty} จาน</strong>
+                          <strong style={{ color: '#f07a8a' }}>{drilldownSummary.totalPopupQty} จาน</strong>
                         </div>
 
                         {/* Popup Breakdown */}
@@ -1327,7 +1335,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                                 <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
                                   • อยู่ใน {item.mainName}
                                 </span>
-                                <span style={{ fontWeight: 700, color: '#c084fc', flexShrink: 0 }}>
+                                <span style={{ fontWeight: 700, color: '#f07a8a', flexShrink: 0 }}>
                                   {item.qty} จาน
                                 </span>
                               </div>
@@ -1355,7 +1363,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                           {/* Order header info */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontWeight: 800, color: '#c084fc', fontSize: '0.9rem' }}>{bill.orderNumber}</span>
+                              <span style={{ fontWeight: 800, color: '#f07a8a', fontSize: '0.9rem' }}>{bill.orderNumber}</span>
                               <span style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '6px', padding: '0.15rem 0.45rem', fontSize: '0.75rem', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>
                                 {bill.customerName}
                               </span>
@@ -1371,7 +1379,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                               <div key={midx} style={{ fontSize: '0.82rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px dashed rgba(255,255,255,0.05)', paddingBottom: '4px', marginBottom: '4px' }}>
                                   <span style={{ color: 'white', fontWeight: 600 }}>📦 {item.name}</span>
-                                  <span style={{ color: '#f1592a', fontWeight: 700 }}>฿{fmt(item.price)}</span>
+                                  <span style={{ color: '#c8102e', fontWeight: 700 }}>฿{fmt(item.price)}</span>
                                 </div>
                                 {item.subItems && item.subItems.length > 0 ? (
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'rgba(192,132,252,0.85)', paddingLeft: '0.5rem' }}>
@@ -1382,8 +1390,8 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
                                         <div key={sidx} style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '4px' }}>
                                           {options.map((opt, oidx) => (
                                             <div key={oidx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                              <span style={{ color: '#c084fc' }}>↳</span>
-                                              <span style={{ color: opt.toLowerCase().includes(drilldownItem.toLowerCase()) ? '#f1592a' : 'rgba(255,255,255,0.7)', fontWeight: opt.toLowerCase().includes(drilldownItem.toLowerCase()) ? 700 : 400 }}>
+                                              <span style={{ color: '#f07a8a' }}>↳</span>
+                                              <span style={{ color: opt.toLowerCase().includes(drilldownItem.toLowerCase()) ? '#c8102e' : 'rgba(255,255,255,0.7)', fontWeight: opt.toLowerCase().includes(drilldownItem.toLowerCase()) ? 700 : 400 }}>
                                                 {opt}
                                               </span>
                                             </div>
@@ -1431,7 +1439,7 @@ const SalesSummaryModal = ({ lang = 'th', initialMode = 'daily', allMenu = [], c
           {!loading && data && (
             <>
               {view === 'summary' && (
-                <button id="capture-btn" onClick={handleDownloadImage} style={{ flex: 1.2, padding: '0.7rem', background: '#7c3aed', border: 'none', color: 'white', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontFamily: 'inherit', boxShadow: '0 4px 15px rgba(124,58,237,0.3)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#6d28d9'} onMouseLeave={e => e.currentTarget.style.background = '#7c3aed'}>
+                <button id="capture-btn" onClick={handleDownloadImage} style={{ flex: 1.2, padding: '0.7rem', background: '#c8102e', border: 'none', color: 'white', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontFamily: 'inherit', boxShadow: '0 4px 15px rgba(200, 16, 46, 0.3)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#a50d25'} onMouseLeave={e => e.currentTarget.style.background = '#c8102e'}>
                   <Download size={16} /> {lang === 'th' ? 'รูปภาพ (PNG)' : 'Save as PNG'}
                 </button>
               )}

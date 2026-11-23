@@ -63,6 +63,7 @@ export const dailyCloseHtml = (r) => {
     ${line('เงินสด', money2(r.cash))}
     ${line('เงินโอน / QR', money2(r.transfer))}
     ${line('บัตรเครดิต', money2(r.card))}
+    ${Number(r.voucher) ? line('Voucher', money2(r.voucher)) : ''}
     <div class="hr"></div>
     <div class="b">เลขที่ใบกำกับภาษีอย่างย่อ</div>
     ${(r.ranges && r.ranges.length ? r.ranges : [{ first: '-', last: '-' }]).map(g => line('ใบแรก', g.first) + line('ใบสุดท้าย', g.last)).join('')}

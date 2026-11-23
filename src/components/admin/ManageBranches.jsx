@@ -135,7 +135,7 @@ export default function ManageBranches() {
               {saveMsg}
             </span>
           )}
-          <button onClick={() => openAdd()} style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 10, color: 'var(--text-main)', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button onClick={() => openAdd()} style={{ background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.35)', borderRadius: 10, color: 'var(--text-main)', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Plus size={18} /> เพิ่มสาขา
           </button>
           <button onClick={handleSave} disabled={saving || !dirty} style={{ background: dirty ? '#16a34a' : 'rgba(0,0,0,0.05)', border: `1px solid ${dirty ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.1)'}`, borderRadius: 10, color: dirty ? 'white' : 'var(--text-muted)', cursor: saving || !dirty ? 'not-allowed' : 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -145,13 +145,13 @@ export default function ManageBranches() {
       </div>
 
       {orphanCodes.length > 0 && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '0.85rem 1rem', marginBottom: '1.25rem', color: '#92400e', fontSize: '0.88rem' }}>
+        <div style={{ background: '#fdf2f4', border: '1px solid #f5b5bf', borderRadius: 12, padding: '0.85rem 1rem', marginBottom: '1.25rem', color: '#7a0a1c', fontSize: '0.88rem' }}>
           <div style={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
             <AlertTriangle size={16} /> มีพนักงานที่ผูกกับรหัสสาขาที่ยังไม่มีในรายการ
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {orphanCodes.map(code => (
-              <button key={code} onClick={() => openAdd(code)} style={{ background: '#fff', border: '1px solid #fcd34d', borderRadius: 8, padding: '0.3rem 0.7rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, color: '#92400e' }}>
+              <button key={code} onClick={() => openAdd(code)} style={{ background: '#fff', border: '1px solid #f07a8a', borderRadius: 8, padding: '0.3rem 0.7rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, color: '#7a0a1c' }}>
                 + สร้างสาขา "{code}" ({userCount(code)} คน)
               </button>
             ))}
@@ -178,7 +178,7 @@ export default function ManageBranches() {
                       รหัส <code>{b.id}</code> · <Users size={12} /> {userCount(b.id)} คน
                     </div>
                     {String(b.id) === String(mainId) ? (
-                      <div style={{ marginTop: 6, fontSize: '0.72rem', fontWeight: 800, color: '#b45309', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 6, padding: '0.15rem 0.5rem', display: 'inline-block' }}>
+                      <div style={{ marginTop: 6, fontSize: '0.72rem', fontWeight: 800, color: '#8e0b20', background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.35)', borderRadius: 6, padding: '0.15rem 0.5rem', display: 'inline-block' }}>
                         ⭐ สาขาหลัก
                       </div>
                     ) : active && (
@@ -236,12 +236,12 @@ export default function ManageBranches() {
                   ใส่เลขผู้เสียภาษีแล้ว ใบเสร็จจะพิมพ์เป็น "ใบกำกับภาษีอย่างย่อ / TAX INV (ABB)" พร้อม POS ID และยอดแยก VAT
                 </div>
                 {String(b.taxId || '').trim() && !String(b.posId || '').trim() && (
-                  <div style={{ fontSize: '0.75rem', color: '#b45309', marginTop: '-0.4rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#8e0b20', marginTop: '-0.4rem' }}>
                     ⚠️ ยังไม่ได้ใส่ POS ID — ใบกำกับภาษีอย่างย่อตามแบบสรรพากรต้องมีเลขรหัสประจำเครื่อง
                   </div>
                 )}
                 {!locked && (
-                  <div style={{ fontSize: '0.75rem', color: '#b45309' }}>สาขาใหม่ — ยังไม่ได้บันทึก กด "บันทึกทั้งหมด"</div>
+                  <div style={{ fontSize: '0.75rem', color: '#8e0b20' }}>สาขาใหม่ — ยังไม่ได้บันทึก กด "บันทึกทั้งหมด"</div>
                 )}
               </div>
             );

@@ -3,7 +3,7 @@ import { Plus, Edit2, Trash2, Save, X, Users, Eye, EyeOff, ShieldCheck, ShieldOf
 import { API_URL } from '../../utils/api';
 import { ALL_BRANCHES, branchLabel } from '../../utils/branches';
 
-const AVATAR_COLORS = ['#7c3aed','#ea580c','#0891b2','#16a34a','#dc2626','#d97706','#7c3aed','#db2777'];
+const AVATAR_COLORS = ['#c8102e','#c8102e','#c8102e','#16a34a','#dc2626','#a50d25','#c8102e','#c8102e'];
 
 const avatarColor = (name) => AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length];
 
@@ -19,9 +19,9 @@ const EMPTY_USER = { id: '', username: '', pin: '', branch: '', canCheckout: tru
 const isTrue = (v) => v === true || v === 'TRUE';
 const userRole = (u) => isTrue(u.isAdmin) ? 'admin' : (isTrue(u.isCashier) ? 'cashier' : 'staff');
 const ROLE_OPTIONS = [
-  { key: 'admin',   label: '👑 แอดมิน',     color: '#f97316', bg: 'rgba(249,115,22,0.18)', bd: 'rgba(249,115,22,0.6)' },
-  { key: 'cashier', label: '💳 แคชเชียร์',   color: '#38bdf8', bg: 'rgba(56,189,248,0.18)', bd: 'rgba(56,189,248,0.6)' },
-  { key: 'staff',   label: 'พนักงานทั่วไป', color: '#475569', bg: 'rgba(100,116,139,0.16)', bd: 'rgba(100,116,139,0.55)' },
+  { key: 'admin',   label: '👑 แอดมิน',     color: '#c8102e', bg: 'rgba(200, 16, 46, 0.18)', bd: 'rgba(200, 16, 46, 0.6)' },
+  { key: 'cashier', label: '💳 แคชเชียร์',   color: '#f07a8a', bg: 'rgba(240, 122, 138, 0.18)', bd: 'rgba(240, 122, 138, 0.6)' },
+  { key: 'staff',   label: 'พนักงานทั่วไป', color: '#454545', bg: 'rgba(90, 90, 90, 0.16)', bd: 'rgba(90, 90, 90, 0.55)' },
 ];
 
 // ช่องสาขา: ถ้าตั้งสาขาไว้ในหน้าตั้งค่าสาขาแล้ว ให้เลือกจากรายการ (กันพิมพ์รหัสผิดแล้วบิลไม่เข้าสาขา)
@@ -164,7 +164,7 @@ export default function ManageUsers() {
               {saveMsg}
             </span>
           )}
-          <button onClick={handleAddUser} style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.35)', borderRadius: 10, color: 'var(--text-main)', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button onClick={handleAddUser} style={{ background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.35)', borderRadius: 10, color: 'var(--text-main)', cursor: 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Plus size={18} /> เพิ่มพนักงาน
           </button>
           <button onClick={handleSave} disabled={saving || !dirty} style={{ background: dirty ? '#16a34a' : 'rgba(0,0,0,0.05)', border: `1px solid ${dirty ? 'rgba(34,197,94,0.5)' : 'rgba(0,0,0,0.1)'}`, borderRadius: 10, color: dirty ? 'white' : 'var(--text-muted)', cursor: saving || !dirty ? 'not-allowed' : 'pointer', padding: '0.6rem 1.1rem', fontWeight: 700, fontSize: '0.875rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}>
@@ -246,7 +246,7 @@ export default function ManageUsers() {
                         })}
                       </div>
                     </div>
-                    <button onClick={() => setEditId(null)} style={{ marginTop: 4, padding: '0.65rem', background: 'var(--accent)', border: 'none', borderRadius: 10, color: 'black', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <button onClick={() => setEditId(null)} style={{ marginTop: 4, padding: '0.65rem', background: 'var(--accent)', border: 'none', borderRadius: 10, color: '#ffffff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                       <CheckCircle size={16} /> เสร็จสิ้น
                     </button>
                   </div>
@@ -261,7 +261,7 @@ export default function ManageUsers() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}>
                         {user.username || <span style={{ color: 'var(--text-muted)' }}>ไม่มีชื่อ</span>}
-                        {(user.branch || user.id) && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 6, padding: '0.1rem 0.45rem' }}>🏠 {branchLabel(user.branch || user.id, branches)}</span>}
+                        {(user.branch || user.id) && <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.3)', borderRadius: 6, padding: '0.1rem 0.45rem' }}>🏠 {branchLabel(user.branch || user.id, branches)}</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         {/* PIN mask */}
@@ -279,12 +279,12 @@ export default function ManageUsers() {
                           {user.canCheckout !== false ? <><ShieldCheck size={10} /> ชำระเงินได้</> : <><ShieldOff size={10} /> ไม่มีสิทธิ์ชำระ</>}
                         </span>
                         {userRole(user) === 'admin' && (
-                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700, background: 'rgba(249,115,22,0.12)', color: '#f97316', border: '1px solid rgba(249,115,22,0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700, background: 'rgba(200, 16, 46, 0.12)', color: '#c8102e', border: '1px solid rgba(200, 16, 46, 0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
                             👑 แอดมิน
                           </span>
                         )}
                         {userRole(user) === 'cashier' && (
-                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700, background: 'rgba(56,189,248,0.12)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ padding: '0.15rem 0.55rem', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700, background: 'rgba(240, 122, 138, 0.12)', color: '#f07a8a', border: '1px solid rgba(240, 122, 138, 0.3)', display: 'flex', alignItems: 'center', gap: 3 }}>
                             💳 แคชเชียร์
                           </span>
                         )}
@@ -292,7 +292,7 @@ export default function ManageUsers() {
                     </div>
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
-                      <button onClick={() => setEditId(user.id)} title="แก้ไข" style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid rgba(59,130,246,0.3)', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <button onClick={() => setEditId(user.id)} title="แก้ไข" style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid rgba(20, 20, 20, 0.3)', background: 'rgba(20, 20, 20, 0.1)', color: '#333333', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Edit2 size={16} />
                       </button>
                       <button onClick={() => handleDelete(user.id)} title="ลบ" style={{ width: 36, height: 36, borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

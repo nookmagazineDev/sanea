@@ -5,7 +5,7 @@ import { API_URL } from '../../utils/api';
 
 const STATUS_CONFIG = {
   OUT: { label: '🔴 หมดแล้ว!',   bg: 'rgba(239,68,68,0.15)',   border: 'rgba(239,68,68,0.4)',   text: '#ef4444' },
-  LOW: { label: '🟡 ใกล้หมด',    bg: 'rgba(234,179,8,0.12)',   border: 'rgba(234,179,8,0.4)',   text: '#d84518' },
+  LOW: { label: '🟡 ใกล้หมด',    bg: 'rgba(200, 16, 46, 0.12)',   border: 'rgba(200, 16, 46, 0.4)',   text: '#8e0b20' },
   OK:  { label: '🟢 ปกติ',        bg: 'rgba(34,197,94,0.10)',   border: 'rgba(34,197,94,0.3)',   text: '#22c55e' },
 };
 
@@ -198,7 +198,7 @@ const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch =
           <button key={tab.key} onClick={() => setFilterStatus(tab.key)} style={{
             padding: '0.4rem 0.9rem', borderRadius: '20px', fontSize: '0.83rem', cursor: 'pointer',
             border: filterStatus === tab.key ? '1.5px solid var(--accent)' : '1px solid rgba(0,0,0,0.08)',
-            background: filterStatus === tab.key ? 'rgba(234,179,8,0.18)' : 'rgba(0,0,0,0.02)',
+            background: filterStatus === tab.key ? 'rgba(200, 16, 46, 0.18)' : 'rgba(0,0,0,0.02)',
             color: filterStatus === tab.key ? 'var(--text-main)' : 'var(--text-muted)',
             fontWeight: filterStatus === tab.key ? '700' : '400',
           }}>{tab.label}</button>
@@ -260,7 +260,7 @@ const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch =
                         {item.nameEn && <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{item.nameEn}</div>}
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>{item.unit}</td>
-                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.status === 'OUT' ? '#ef4444' : item.status === 'LOW' ? '#d84518' : 'var(--text-main)' }}>
+                      <td style={{ textAlign: 'right', fontWeight: '700', color: item.status === 'OUT' ? '#ef4444' : item.status === 'LOW' ? '#8e0b20' : 'var(--text-main)' }}>
                         {item.current.toLocaleString('th-TH', { maximumFractionDigits: 1 })}
                       </td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
@@ -272,7 +272,7 @@ const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch =
                         </td>
                       )}
                       {canSeeCost && (
-                        <td style={{ textAlign: 'right', fontSize: '0.88rem', color: stockValue > 0 ? '#60a5fa' : 'var(--text-muted)' }}>
+                        <td style={{ textAlign: 'right', fontSize: '0.88rem', color: stockValue > 0 ? '#f07a8a' : 'var(--text-muted)' }}>
                           {stockValue > 0 ? `฿${stockValue.toLocaleString('th-TH', { maximumFractionDigits: 0 })}` : '—'}
                         </td>
                       )}
@@ -296,7 +296,7 @@ const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch =
           {[
             { label: 'วัตถุดิบทั้งหมด', val: `${stock.length} รายการ`, color: 'var(--text-main)' },
             { label: 'ใกล้หมด/หมดแล้ว', val: `${alertItems.length} รายการ`, color: alertItems.length > 0 ? '#ef4444' : '#22c55e' },
-            ...(canSeeCost ? [{ label: 'มูลค่าสต็อครวม', val: `฿${stock.reduce((s, i) => s + i.current * i.price, 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}`, color: '#60a5fa' }] : []),
+            ...(canSeeCost ? [{ label: 'มูลค่าสต็อครวม', val: `฿${stock.reduce((s, i) => s + i.current * i.price, 0).toLocaleString('th-TH', { maximumFractionDigits: 0 })}`, color: '#f07a8a' }] : []),
           ].map(card => (
             <div key={card.label} style={{ background: 'var(--bg-card)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: '10px', padding: '0.75rem 1.25rem', minWidth: '160px' }}>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>{card.label}</div>
@@ -379,7 +379,7 @@ const ManageStock = ({ branchId: homeBranch = '', branches = [], canPickBranch =
                     {showPreview && (
                       <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', paddingLeft: '0.25rem' }}>
                         ➜ เข้าสต็อก <strong style={{ color: '#22c55e' }}>{usageQty.toLocaleString()} {sel.unit}</strong>
-                        {canSeeCost && usageCost != null && <> · ต้นทุน <strong style={{ color: '#60a5fa' }}>฿{usageCost.toLocaleString(undefined, { maximumFractionDigits: 4 })}/{sel.unit}</strong></>}
+                        {canSeeCost && usageCost != null && <> · ต้นทุน <strong style={{ color: '#f07a8a' }}>฿{usageCost.toLocaleString(undefined, { maximumFractionDigits: 4 })}/{sel.unit}</strong></>}
                         {sel.purchaseUnit && <span style={{ opacity: 0.7 }}> (1 {sel.purchaseUnit} = {factor.toLocaleString()} {sel.unit})</span>}
                       </div>
                     )}

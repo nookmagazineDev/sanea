@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart2, TrendingUp, Receipt, XCircle, Clock, RefreshCw, Download, FileText, List } from 'lucide-react';
+import { BarChart2, TrendingUp, Receipt, XCircle, Clock, RefreshCw, Download, FileText, List, Tag } from 'lucide-react';
 import { API_URL } from '../../utils/api';
 import TaxInvoiceModal from './TaxInvoiceModal';
 import { getReceiptHeader } from '../../utils/printServer';
@@ -12,6 +12,7 @@ const TABS = [
   { key: 'detail',  label: 'รายละเอียดการขาย',   icon: <List      size={15} /> },
   { key: 'income',  label: 'รายรับ-รายจ่าย',   icon: <TrendingUp size={15} /> },
   { key: 'menu',    label: 'ยอดขายตามเมนู',      icon: <BarChart2  size={15} /> },
+  { key: 'discount', label: 'ส่วนลด',            icon: <Tag       size={15} /> },
   { key: 'cancel',  label: 'ประวัติการยกเลิก',    icon: <XCircle   size={15} /> },
   { key: 'shift',   label: 'รายงานปิดกะ',         icon: <Clock     size={15} /> },
 ];
@@ -145,6 +146,18 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
     load(from, to);
   }, [load, from, to]);
 
+  // ── รายงานส่วนลด: บิลที่ใช้ส่วนลด (ชื่อ ยอด ประเภท พนักงาน) — บันทึกตอนปิดบิลตั้งแต่อัปเดตระบบ ──
+  const [discRows, setDiscRows] = useState([]);
+  const [discNotReady, setDiscNotReady] = useState(false);
+  React.useEffect(() => {
+    let alive = true;
+    fetch(`${API_URL}?action=getDiscountReport&from=${from}&to=${to}&branch=${encodeURIComponent(branchFilter || '')}`)
+      .then(r => r.json())
+      .then(json => { if (!alive) return; setDiscRows(json && json.success && Array.isArray(json.rows) ? json.rows : []); setDiscNotReady(!!(json && json.notReady)); })
+      .catch(() => { if (alive) setDiscRows([]); });
+    return () => { alive = false; };
+  }, [from, to, branchFilter]);
+
   // ─── Derived ────────────────────────────────────────────────
   const payMap = {};
   (data?.payments || []).forEach(p => { payMap[p.orderNumber] = p; });
@@ -240,6 +253,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
       incomeByDay[day].cash     += Number(sd.cash)     || 0;
       incomeByDay[day].transfer += Number(sd.transfer) || 0;
       incomeByDay[day].card     += Number(sd.card)     || 0;
+      incomeByDay[day].other    += Number(sd.voucher)  || 0;   // Voucher → อื่นๆ
     } else {
       const m = (o.paymentMethod || '').toLowerCase();
       if (m.includes('สด') || m === 'cash')                                   incomeByDay[day].cash     += o.total;
@@ -390,7 +404,25 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
     ], `รายงานทั้งหมด_${from}_${to}`);
   };
 
-  const TAB_EXPORT = { daily: exportAll, income: exportIncome, menu: exportMenu, history: exportHistory, vat: exportVat, detail: exportDetail, cancel: exportCancel, shift: exportShift };
+  // ส่วนลด: นับเฉพาะบิลที่ไม่ถูกยกเลิก
+  const discValid = discRows.filter(r => !r.cancelled);
+  const discTotal = Math.round(discValid.reduce((s, r) => s + r.amount, 0) * 100) / 100;
+  const groupBy = (keyOf) => {
+    const m = new Map();
+    discValid.forEach(r => { const k = keyOf(r); const g = m.get(k) || { key: k, kind: r.kind, bills: 0, amount: 0 }; g.bills++; g.amount = Math.round((g.amount + r.amount) * 100) / 100; m.set(k, g); });
+    return [...m.values()].sort((a, b) => b.amount - a.amount);
+  };
+  const discByName  = groupBy(r => r.name || 'ส่วนลด');
+  const discByStaff = groupBy(r => r.staff || '—');
+  const kindLabel = (k) => (k === 'coupon' ? 'คูปองสมาชิก' : 'ส่วนลดร้าน');
+  const exportDiscount = () => exportXLSX([
+    { name: 'ตามประเภทส่วนลด', headers: ['ส่วนลด', 'ประเภท', 'จำนวนบิล', 'ยอดลดรวม', 'เฉลี่ยต่อบิล'], rows: discByName.map(g => [g.key, kindLabel(g.kind), g.bills, g.amount, Math.round(g.amount / g.bills * 100) / 100]) },
+    { name: 'ตามพนักงาน', headers: ['พนักงาน', 'จำนวนบิล', 'ยอดลดรวม'], rows: discByStaff.map(g => [g.key, g.bills, g.amount]) },
+    { name: 'รายบิล', headers: ['วันเวลา', 'เลขบิล', 'โต๊ะ', 'สาขา', 'ส่วนลด', 'ประเภท', 'ยอดลด', 'ยอดบิล (หลังลด)', 'พนักงาน', 'สถานะ'],
+      rows: discRows.map(r => [fmtD(r.timestamp), r.orderNumber, r.tableNo, r.branchId, r.name, kindLabel(r.kind), r.amount, r.grandTotal, r.staff, r.cancelled ? 'ยกเลิก' : '']) },
+  ], `รายงานส่วนลด_${from}_${to}`);
+
+  const TAB_EXPORT = { discount: exportDiscount, daily: exportAll, income: exportIncome, menu: exportMenu, history: exportHistory, vat: exportVat, detail: exportDetail, cancel: exportCancel, shift: exportShift };
 
   return (
     <div style={{ color: 'var(--text-main)', fontFamily: 'inherit' }}>
@@ -413,7 +445,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
       <div style={{ ...card, marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
           {PRESETS.map(p => (
-            <button key={p.label} onClick={() => { setFrom(p.from); setTo(p.to); }} style={{ padding: '0.35rem 0.8rem', borderRadius: 20, border: '1px solid', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', background: from === p.from && to === p.to ? 'rgba(234,179,8,0.18)' : 'rgba(0,0,0,0.02)', borderColor: from === p.from && to === p.to ? 'var(--accent)' : 'rgba(0,0,0,0.12)', color: from === p.from && to === p.to ? 'var(--text-main)' : 'var(--text-muted)' }}>
+            <button key={p.label} onClick={() => { setFrom(p.from); setTo(p.to); }} style={{ padding: '0.35rem 0.8rem', borderRadius: 20, border: '1px solid', cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit', background: from === p.from && to === p.to ? 'rgba(200, 16, 46, 0.18)' : 'rgba(0,0,0,0.02)', borderColor: from === p.from && to === p.to ? 'var(--accent)' : 'rgba(0,0,0,0.12)', color: from === p.from && to === p.to ? 'var(--text-main)' : 'var(--text-muted)' }}>
               {p.label}
             </button>
           ))}
@@ -422,7 +454,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
           <input type="date" value={from} onChange={e => setFrom(e.target.value)} style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, color: 'var(--text-main)', padding: '0.4rem 0.65rem', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }} />
           <span style={{ color: 'var(--text-muted)' }}>—</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)} style={{ background: '#ffffff', border: '1px solid rgba(0,0,0,0.15)', borderRadius: 8, color: 'var(--text-main)', padding: '0.4rem 0.65rem', fontFamily: 'inherit', fontSize: '0.85rem', outline: 'none' }} />
-          <button onClick={() => load(from, to)} disabled={loading} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, color: 'black', cursor: loading ? 'not-allowed' : 'pointer', padding: '0.45rem 1rem', fontWeight: 700, fontSize: '0.85rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button onClick={() => load(from, to)} disabled={loading} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, color: '#ffffff', cursor: loading ? 'not-allowed' : 'pointer', padding: '0.45rem 1rem', fontWeight: 700, fontSize: '0.85rem', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             {loading ? 'กำลังโหลด...' : 'โหลดข้อมูล'}
           </button>
@@ -438,7 +470,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
             {branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         ) : (
-          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.3)', borderRadius: 8, padding: '0.3rem 0.85rem' }}>{branchFilter || '—'}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(200, 16, 46, 0.15)', border: '1px solid rgba(200, 16, 46, 0.3)', borderRadius: 8, padding: '0.3rem 0.85rem' }}>{branchFilter || '—'}</span>
         )}
       </div>
 
@@ -446,7 +478,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
 
       <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '0.45rem 1rem', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontSize: '0.85rem', fontWeight: tab === t.key ? 700 : 400, fontFamily: 'inherit', background: tab === t.key ? 'rgba(234,179,8,0.18)' : 'rgba(0,0,0,0.02)', borderColor: tab === t.key ? 'var(--accent)' : 'rgba(0,0,0,0.08)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ padding: '0.45rem 1rem', borderRadius: 20, border: '1.5px solid', cursor: 'pointer', fontSize: '0.85rem', fontWeight: tab === t.key ? 700 : 400, fontFamily: 'inherit', background: tab === t.key ? 'rgba(200, 16, 46, 0.18)' : 'rgba(0,0,0,0.02)', borderColor: tab === t.key ? 'var(--accent)' : 'rgba(0,0,0,0.08)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {t.icon} {t.label}
           </button>
         ))}
@@ -492,8 +524,8 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem' }}>
                   {[
                     { label: '💵 เงินสด', value: `฿${fmt(totalCash)}`, color: '#22c55e' },
-                    { label: '📱 เงินโอน / QR', value: `฿${fmt(totalXfer)}`, color: '#38bdf8' },
-                    { label: '💳 บัตรเครดิต', value: `฿${fmt(totalCard)}`, color: '#f97316' },
+                    { label: '📱 เงินโอน / QR', value: `฿${fmt(totalXfer)}`, color: '#f07a8a' },
+                    { label: '💳 บัตรเครดิต', value: `฿${fmt(totalCard)}`, color: '#c8102e' },
                   ].map(({ label, value, color }) => (
                     <div key={label} style={{ background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)', borderRadius: 8, padding: '0.75rem 1rem' }}>
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginBottom: 4 }}>{label}</div>
@@ -531,8 +563,8 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
                 {[
                   { label: 'รายรับรวม',  value: `฿${fmt(totalSales)}`,  color: 'var(--text-main)' },
                   { label: 'เงินสด',      value: `฿${fmt(totalCash)}`,   color: '#22c55e' },
-                  { label: 'โอน / QR',    value: `฿${fmt(totalXfer)}`,   color: '#38bdf8' },
-                  { label: 'บัตรเครดิต', value: `฿${fmt(totalCard)}`,   color: '#f97316' },
+                  { label: 'โอน / QR',    value: `฿${fmt(totalXfer)}`,   color: '#f07a8a' },
+                  { label: 'บัตรเครดิต', value: `฿${fmt(totalCard)}`,   color: '#c8102e' },
                   { label: 'จำนวนบิล',   value: `${totalBills} บิล`,    color: 'var(--text-main)'   },
                 ].map(({ label, value, color }) => (
                   <div key={label} style={{ ...card, textAlign: 'center' }}>
@@ -547,8 +579,8 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
                     <Td>{r.day}</Td>
                     <Td bold color="var(--text-main)">฿{fmt(r.total)}</Td>
                     <Td color="#22c55e">฿{fmt(r.cash)}</Td>
-                    <Td color="#38bdf8">฿{fmt(r.transfer)}</Td>
-                    <Td color="#f97316">฿{fmt(r.card)}</Td>
+                    <Td color="#f07a8a">฿{fmt(r.transfer)}</Td>
+                    <Td color="#c8102e">฿{fmt(r.card)}</Td>
                     <Td muted>{r.other > 0 ? `฿${fmt(r.other)}` : '—'}</Td>
                     <Td center>{r.count}</Td>
                   </tr>
@@ -580,7 +612,7 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
                   </Td>
                 </tr>
               )}
-              <tr style={{ background: 'rgba(234,179,8,0.12)', fontWeight: 'bold' }}>
+              <tr style={{ background: 'rgba(200, 16, 46, 0.12)', fontWeight: 'bold' }}>
                 <Td center>—</Td>
                 <Td color="var(--text-main)">รวมยอดขายสุทธิ (Grand Total)</Td>
                 <Td center>—</Td>
@@ -707,6 +739,69 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
             </>
           )}
 
+          {/* ── Tab: ส่วนลด ── */}
+          {tab === 'discount' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(170px,1fr))', gap: '0.75rem' }}>
+                {[
+                  { label: 'บิลที่ใช้ส่วนลด', value: `${fmt(discValid.length)} บิล` },
+                  { label: 'ส่วนลดรวม', value: `฿${fmt(discTotal)}`, color: '#16a34a' },
+                  { label: 'คิดเป็นของยอดขาย', value: totalSales > 0 ? `${(discTotal / (totalSales + discTotal) * 100).toFixed(1)}%` : '—' },
+                  { label: 'เฉลี่ยต่อบิล', value: discValid.length ? `฿${fmt(Math.round(discTotal / discValid.length * 100) / 100)}` : '—' },
+                ].map(c => (
+                  <div key={c.label} style={card}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{c.label}</div>
+                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: c.color || 'var(--text-main)' }}>{c.value}</div>
+                  </div>
+                ))}
+              </div>
+              {discNotReady && (
+                <div style={{ ...card, color: '#8e0b20', fontSize: '0.85rem' }}>ฐานข้อมูลยังไม่มีช่องเก็บส่วนลด — รัน update-api.bat ที่เครื่อง API หนึ่งครั้ง</div>
+              )}
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>ตามประเภทส่วนลด</div>
+                <TableWrap empty={discByName.length === 0} emptyMsg="ไม่มีบิลที่ใช้ส่วนลดในช่วงเวลานี้" headers={['ส่วนลด', 'ประเภท', 'จำนวนบิล', 'ยอดลดรวม', 'เฉลี่ยต่อบิล']}>
+                  {discByName.map(g => (
+                    <tr key={g.key}>
+                      <Td bold>{g.key}</Td>
+                      <Td muted>{kindLabel(g.kind)}</Td>
+                      <Td>{fmt(g.bills)}</Td>
+                      <Td bold color="#16a34a">฿{fmt(g.amount)}</Td>
+                      <Td muted>฿{fmt(Math.round(g.amount / g.bills * 100) / 100)}</Td>
+                    </tr>
+                  ))}
+                </TableWrap>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>ตามพนักงานที่ปิดบิล</div>
+                <TableWrap empty={discByStaff.length === 0} emptyMsg="—" headers={['พนักงาน', 'จำนวนบิล', 'ยอดลดรวม']}>
+                  {discByStaff.map(g => (
+                    <tr key={g.key}><Td bold>{g.key}</Td><Td>{fmt(g.bills)}</Td><Td bold color="#16a34a">฿{fmt(g.amount)}</Td></tr>
+                  ))}
+                </TableWrap>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>รายบิล ({fmt(discRows.length)})</div>
+                <TableWrap empty={discRows.length === 0} emptyMsg="—" headers={['วันเวลา', 'เลขบิล', 'โต๊ะ', 'ส่วนลด', 'ยอดลด', 'ยอดบิล', 'พนักงาน']}>
+                  {discRows.map((r, i) => (
+                    <tr key={i} style={r.cancelled ? { opacity: 0.5, textDecoration: 'line-through' } : undefined}>
+                      <Td muted nowrap>{fmtD(r.timestamp)}</Td>
+                      <Td bold>{r.orderNumber}{r.cancelled ? ' (ยกเลิก)' : ''}</Td>
+                      <Td>{r.tableNo || '—'}</Td>
+                      <Td>{r.name}</Td>
+                      <Td bold color="#16a34a">-฿{fmt(r.amount)}</Td>
+                      <Td>฿{fmt(r.grandTotal)}</Td>
+                      <Td muted>{r.staff || '—'}</Td>
+                    </tr>
+                  ))}
+                </TableWrap>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: 0 }}>
+                บันทึกชื่อส่วนลดตั้งแต่อัปเดตระบบ (บิลก่อนหน้านั้นไม่มีชื่อส่วนลด) · บิลที่ยกเลิกแสดงขีดฆ่าและไม่นับในยอดรวม · คิดเป็น % ของยอดขายก่อนหักส่วนลด
+              </p>
+            </div>
+          )}
+
           {/* ── Tab: ประวัติการยกเลิก ── */}
           {tab === 'cancel' && (
             <>
@@ -754,8 +849,8 @@ export default function Reports({ allMenu = [], isAdmin = false, branch = '', us
                             { label: 'ยอดขายรวม',  value: `฿${fmt(s.totalSales)}`,   color: 'var(--text-main)' },
                             { label: 'จำนวนบิล',   value: `${s.totalOrders || 0} บิล`, color: 'var(--text-main)' },
                             { label: 'เงินสด',      value: `฿${fmt(s.totalCash)}`,    color: '#22c55e' },
-                            { label: 'โอน / QR',    value: `฿${fmt(s.totalTransfer)}`,color: '#38bdf8' },
-                            { label: 'บัตรเครดิต', value: `฿${fmt(s.totalCard)}`,    color: '#f97316' },
+                            { label: 'โอน / QR',    value: `฿${fmt(s.totalTransfer)}`,color: '#f07a8a' },
+                            { label: 'บัตรเครดิต', value: `฿${fmt(s.totalCard)}`,    color: '#c8102e' },
                             { label: 'เงินเปิดกะ', value: `฿${fmt(s.openCash)}`,     color: 'var(--text-muted)' },
                             ...(s.status === 'closed' ? [
                               { label: 'เงินปิดกะ',       value: `฿${fmt(s.closeCash)}`, color: 'var(--text-muted)' },
@@ -818,9 +913,9 @@ function Td({ children, color, bold, muted, center, nowrap }) {
 function PayBadge({ method }) {
   if (!method || method === '—') return <span style={{ color: 'var(--text-muted)' }}>—</span>;
   const m = method.toLowerCase();
-  let c = 'var(--text-main)', bg = 'rgba(234,179,8,0.15)', b = 'rgba(234,179,8,0.3)';
+  let c = 'var(--text-main)', bg = 'rgba(200, 16, 46, 0.15)', b = 'rgba(200, 16, 46, 0.3)';
   if (m.includes('สด') || m === 'cash')                               { c = '#22c55e'; bg = 'rgba(34,197,94,0.12)';  b = 'rgba(34,197,94,0.3)'; }
-  else if (m.includes('โอน') || m.includes('qr') || m === 'transfer') { c = '#38bdf8'; bg = 'rgba(56,189,248,0.12)'; b = 'rgba(56,189,248,0.3)'; }
-  else if (m.includes('บัตร') || m === 'card')                        { c = '#f97316'; bg = 'rgba(249,115,22,0.12)'; b = 'rgba(249,115,22,0.3)'; }
+  else if (m.includes('โอน') || m.includes('qr') || m === 'transfer') { c = '#f07a8a'; bg = 'rgba(240, 122, 138, 0.12)'; b = 'rgba(240, 122, 138, 0.3)'; }
+  else if (m.includes('บัตร') || m === 'card')                        { c = '#c8102e'; bg = 'rgba(200, 16, 46, 0.12)'; b = 'rgba(200, 16, 46, 0.3)'; }
   return <span style={{ padding: '0.2rem 0.6rem', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700, background: bg, color: c, border: `1px solid ${b}` }}>{method}</span>;
 }

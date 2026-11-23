@@ -196,7 +196,7 @@ const ManageBOM = () => {
   };
 
   // ─── UI helpers ──────────────────────────────────────────────────────────
-  const marginColor = margin >= 60 ? '#22c55e' : margin >= 35 ? '#d84518' : '#ef4444';
+  const marginColor = margin >= 60 ? '#22c55e' : margin >= 35 ? '#8e0b20' : '#ef4444';
 
   const TAB_BTN = (tab, label, badge) => (
     <button
@@ -402,7 +402,7 @@ const ManageBOM = () => {
                                 />
                               )}
                               {row.ingId && ingredients.length > 0 && !ingredients.find(i => i.id === row.ingId) && (
-                                <div style={{ fontSize: '0.72rem', color: '#d84518', marginTop: '0.15rem' }}>⚠ ไม่พบในคลังวัตถุดิบ</div>
+                                <div style={{ fontSize: '0.72rem', color: '#8e0b20', marginTop: '0.15rem' }}>⚠ ไม่พบในคลังวัตถุดิบ</div>
                               )}
                             </td>
                             {/* Quantity */}
@@ -477,7 +477,7 @@ const ManageBOM = () => {
                 </button>
               </div>
 
-              <div style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', padding: '0.8rem 1rem', borderRadius: 10, color: '#d84518', fontSize: '0.8rem', lineHeight: 1.6 }}>
+              <div style={{ background: 'rgba(200, 16, 46, 0.08)', border: '1px solid rgba(200, 16, 46, 0.2)', padding: '0.8rem 1rem', borderRadius: 10, color: '#8e0b20', fontSize: '0.8rem', lineHeight: 1.6 }}>
                 💡 <strong>วิธีใช้:</strong> บันทึก BOM ทุกเมนูที่ต้องการ แล้วกด <strong>"Sync ไปยัง GAS"</strong> เพื่อส่งข้อมูลไปชีท BOM
                 — ระบบจะตัดสต็อกอัตโนมัติเมื่อมีออเดอร์ผ่าน GAS action <code>deductStock</code>
               </div>
@@ -649,7 +649,7 @@ const ManageBOM = () => {
                   return (
                     <div style={{ gridColumn: 'span 2', fontSize: '0.78rem', color: 'var(--text-muted)', background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 8, padding: '0.5rem 0.75rem' }}>
                       💡 1 {editingIng.purchaseUnit} = {upp.toLocaleString()} {editingIng.unit || 'หน่วยใช้'}
-                      {cpu > 0 && <> · ต้นทุนต่อ 1 {editingIng.purchaseUnit} ≈ <strong style={{ color: '#60a5fa' }}>฿{(cpu * upp).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></>}
+                      {cpu > 0 && <> · ต้นทุนต่อ 1 {editingIng.purchaseUnit} ≈ <strong style={{ color: '#f07a8a' }}>฿{(cpu * upp).toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong></>}
                     </div>
                   );
                 }

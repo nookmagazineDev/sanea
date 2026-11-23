@@ -123,7 +123,7 @@ const ManageDiscounts = () => {
                       <span style={{
                         padding: '3px 12px', borderRadius: '20px', fontSize: '0.82rem', fontWeight: '600',
                         background: item.type === 'baht' ? 'rgba(34,197,94,0.12)' : 'rgba(96,165,250,0.12)',
-                        color: item.type === 'baht' ? '#16a34a' : '#2563eb',
+                        color: item.type === 'baht' ? '#16a34a' : '#141414',
                         border: `1px solid ${item.type === 'baht' ? 'rgba(34,197,94,0.3)' : 'rgba(96,165,250,0.3)'}`
                       }}>
                         {item.type === 'baht' ? (lang === 'th' ? '฿ บาท' : '฿ Baht') : (lang === 'th' ? '% เปอร์เซ็น' : '% Percent')}
@@ -187,7 +187,7 @@ const ManageDiscounts = () => {
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   {[
                     { value: 'baht', labelTh: '฿ บาท (ลดคงที่)', labelEn: '฿ Fixed Baht', color: '#22c55e' },
-                    { value: 'percent', labelTh: '% เปอร์เซ็น', labelEn: '% Percentage', color: '#60a5fa' }
+                    { value: 'percent', labelTh: '% เปอร์เซ็น', labelEn: '% Percentage', color: '#f07a8a' }
                   ].map(opt => (
                     <button
                       key={opt.value}
@@ -250,7 +250,7 @@ const ManageDiscounts = () => {
                           style={{
                             padding: '0.45rem 1rem', borderRadius: '20px', cursor: 'pointer', fontFamily: 'inherit',
                             border: `1.5px solid ${selected ? 'var(--accent)' : 'rgba(255,255,255,0.15)'}`,
-                            background: selected ? 'rgba(249,115,22,0.15)' : 'rgba(255,255,255,0.04)',
+                            background: selected ? 'rgba(200, 16, 46, 0.15)' : 'rgba(255,255,255,0.04)',
                             color: selected ? 'var(--accent)' : 'var(--text-muted)',
                             fontWeight: selected ? '700' : '400', fontSize: '0.88rem', transition: 'all 0.15s'
                           }}
@@ -267,7 +267,7 @@ const ManageDiscounts = () => {
               {/* Preview */}
               {editingItem.name && editingItem.value > 0 && (
                 <div style={{
-                  background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.2)',
+                  background: 'rgba(200, 16, 46, 0.07)', border: '1px solid rgba(200, 16, 46, 0.2)',
                   borderRadius: '10px', padding: '0.85rem 1rem', marginBottom: '0.5rem'
                 }}>
                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)' }}>

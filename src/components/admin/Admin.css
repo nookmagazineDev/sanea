@@ -6,120 +6,152 @@
   font-family: 'Inter', system-ui, sans-serif;
 }
 
+/* ── เมนูซ้าย: กว้างคงที่ ไม่ถูกบีบ · เลื่อนในตัวเองเมื่อจอเตี้ย ── */
 .admin-sidebar {
-  width: 280px;
+  width: 248px;
+  flex-shrink: 0;
   background: var(--bg-card);
   border-right: 1px solid rgba(0,0,0,0.08);
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .admin-logo {
-  padding: 2rem;
+  padding: 1.25rem 1.1rem 1rem;
   border-bottom: 1px solid rgba(0,0,0,0.08);
 }
+.admin-logo-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+.admin-logo h2 { margin: 0; font-size: 1.25rem; color: var(--accent-hover); }
+.admin-logo p { margin: 0.2rem 0 0; color: var(--text-muted); font-size: 0.8rem; }
+.admin-close { display: none; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0.25rem; }
 
-.admin-logo h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  color: var(--accent-hover);
-}
-
-.admin-nav {
-  display: flex;
-  flex-direction: column;
-  padding: 1.5rem 1rem;
-  gap: 0.5rem;
-  flex-grow: 1;
-}
-
-.admin-link {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  color: var(--text-muted);
-  text-decoration: none;
-  border-radius: 12px;
-  transition: all 0.2s;
-  background: none;
-  border: none;
-  font-size: 1.05rem;
-  cursor: pointer;
-  text-align: left;
-  font-weight: 600;
-}
-
-.admin-link:hover, .admin-link.active {
-  background: rgba(234, 179, 8, 0.15);
-  color: var(--text-main);
-}
-
-.admin-link.logout {
-  margin-top: auto;
-  color: #ef4444;
-}
-
-.admin-link.logout:hover {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-/* ปุ่มกลับหน้าร้าน/ออกจากระบบ ใต้หัวเมนูซ้าย — เดิมอยู่ท้ายเมนูยาว ๆ ต้องเลื่อนลงไปหา */
-.admin-quick {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
+/* ปุ่มกลับหน้าร้าน/ออกจากระบบ ใต้หัวเมนู — ข้อความบรรทัดเดียว */
+.admin-quick { display: flex; gap: 0.5rem; margin-top: 0.85rem; }
 .admin-quick button {
   flex: 1;
   min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.5rem;
+  gap: 0.35rem;
+  padding: 0.5rem 0.4rem;
   border-radius: 10px;
   border: 1px solid rgba(0,0,0,0.12);
   background: var(--bg-dark);
   color: var(--text-main);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.2s;
 }
-
-.admin-quick button:hover { background: rgba(234, 179, 8, 0.15); }
+.admin-quick button:hover { background: rgba(200, 16, 46, 0.15); }
 .admin-quick button.danger { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
 .admin-quick button.danger:hover { background: rgba(239, 68, 68, 0.1); }
+
+.admin-nav { display: flex; flex-direction: column; padding: 0.5rem 0.75rem 1rem; flex-grow: 1; }
+.admin-nav-group { display: flex; flex-direction: column; gap: 2px; padding-top: 0.6rem; }
+.admin-nav-group + .admin-nav-group { border-top: 1px solid rgba(0,0,0,0.06); margin-top: 0.5rem; }
+.admin-nav-heading {
+  padding: 0.15rem 0.75rem 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.admin-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.25;
+  cursor: pointer;
+  text-align: left;
+  font-weight: 600;
+}
+.admin-link svg { flex-shrink: 0; }
+.admin-link:hover { background: rgba(200, 16, 46, 0.1); color: var(--text-main); }
+.admin-link.active { background: rgba(200, 16, 46, 0.18); color: var(--text-main); box-shadow: inset 3px 0 0 var(--accent); }
+
+.admin-lang { padding: 0.75rem; border-top: 1px solid rgba(0,0,0,0.08); }
+.admin-lang button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.1);
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-topbar, .admin-backdrop { display: none; }
 
 .admin-main {
   flex-grow: 1;
   min-width: 0;
-  padding: 2.5rem 3rem;
+  padding: 2rem 2.5rem;
   overflow-y: auto;
 }
 
-/* หน้าที่เนื้อหาเป็นการ์ดเรียงลงมา — จอกว้างให้ไหลเป็นหลายคอลัมน์แทนที่จะทิ้งที่ว่างไว้ครึ่งจอ
-   (การ์ดใบไหนอยากกินเต็มแถวใส่ class admin-card-wide) */
 .admin-page { width: 100%; }
 
-@media (min-width: 1180px) {
-  .admin-page-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-    gap: 0 1.25rem;
-    align-content: start;
-    /* การ์ดสูงไม่เท่ากัน — ไม่ต้องยืดใบเตี้ยให้สูงตามใบข้าง ๆ */
-    align-items: start;
+/* ── จอแคบ (มือถือ/แท็บเล็ต): เมนูซ้ายเป็นลิ้นชัก เปิดจากปุ่ม ☰ — เนื้อหาได้เต็มความกว้าง ── */
+@media (max-width: 1023px) {
+  .admin-container { flex-direction: column; }
+  .admin-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-shrink: 0;
+    padding: 0.6rem 1rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
   }
-  .admin-page-cards > h2,
-  .admin-page-cards > p,
-  .admin-page-cards > button {
-    grid-column: 1 / -1;
+  .admin-burger {
+    display: inline-flex;
+    padding: 0.4rem;
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.12);
+    background: var(--bg-dark);
+    color: var(--text-main);
+    cursor: pointer;
   }
+  .admin-topbar-title { font-weight: 800; font-size: 1rem; color: var(--text-main); }
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1001;
+    width: min(280px, 85vw);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.18);
+  }
+  .nav-open .admin-sidebar { transform: none; }
+  .nav-open .admin-backdrop { display: block; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.35); }
+  .admin-close { display: inline-flex; }
+  .admin-main { padding: 1rem; }
 }
 
 .admin-header {
@@ -169,7 +201,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(250, 204, 21, 0.15);
+  background: rgba(200, 16, 46, 0.15);
   color: var(--accent-hover);
 }
 
@@ -212,7 +244,7 @@
 
 .admin-btn {
   background: var(--accent);
-  color: black;
+  color: #ffffff;
   border: none;
   padding: 0.6rem 1.2rem;
   border-radius: 8px;
@@ -226,7 +258,7 @@
 
 .admin-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
+  box-shadow: 0 4px 12px rgba(200, 16, 46, 0.2);
 }
 
 .admin-btn.secondary {
@@ -329,4 +361,50 @@
   outline: none;
   border-color: var(--accent);
   background: #ffffff;
+}
+
+/* ── หน้าตั้งค่าร้าน: หัวข้อเรียงลงมาทีละหมวด กว้างไม่เกินอ่านง่าย (เดิมการ์ดไหลหลายคอลัมน์ สูงไม่เท่ากัน เลยเป็นรูโหว่และสลับที่) ── */
+.settings-page { max-width: 980px; }
+.settings-head h2 { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.35rem; font-size: 1.4rem; color: var(--text-main); }
+.settings-head p { margin: 0 0 1rem; color: var(--text-muted); font-size: 0.9rem; }
+.settings-jump { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
+.settings-jump button {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.12);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-jump button:hover { background: rgba(200, 16, 46, 0.15); }
+.settings-section { scroll-margin-top: 1rem; margin-bottom: 2rem; }
+.settings-section-title { margin: 0 0 0.25rem; font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+.settings-section-desc { margin: 0 0 0.9rem; color: var(--text-muted); font-size: 0.85rem; }
+.settings-section > .settings-section-title:only-of-type + div { margin-top: 0.75rem; }
+.settings-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem; align-items: stretch; }
+.settings-grid-2 > div { margin-bottom: 0 !important; }
+.settings-section > div:last-child { margin-bottom: 0 !important; }
+.settings-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  margin: 0 -0.25rem;
+  background: var(--bg-card);
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 14px;
+  box-shadow: 0 -6px 20px rgba(0,0,0,0.06);
+}
+.settings-savebar span { color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
+@media (max-width: 600px) {
+  .settings-grid-2 { grid-template-columns: 1fr; }
+  .settings-savebar span { display: none; }
+  .settings-savebar button { flex: 1; justify-content: center; }
 }
